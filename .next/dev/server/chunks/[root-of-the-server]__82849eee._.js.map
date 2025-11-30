@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 46, "column": 0}, "map": {"version":3,"sources":["file:///Users/kawamotoshuntasuku/Desktop/dev/oneapp/app/api/auth/session/route.ts"],"sourcesContent":["import { NextResponse } from \"next/server\"\nimport { cookies } from \"next/headers\"\n\nexport async function GET() {\n  try {\n    const cookieStore = await cookies()\n    const session = cookieStore.get(\"session\")\n\n    if (!session) {\n      return NextResponse.json({ authenticated: false }, { status: 401 })\n    }\n\n    const sessionData = JSON.parse(session.value)\n    return NextResponse.json({\n      authenticated: true,\n      ...sessionData,\n    })\n  } catch (error) {\n    console.error(\"[v0] Session error:\", error)\n    return NextResponse.json({ authenticated: false }, { status: 401 })\n  }\n}\n"],"names":[],"mappings":";;;;AAAA;AACA;;;AAEO,eAAe;IACpB,IAAI;QACF,MAAM,cAAc,MAAM,IAAA,sJAAO;QACjC,MAAM,UAAU,YAAY,GAAG,CAAC;QAEhC,IAAI,CAAC,SAAS;YACZ,OAAO,0JAAY,CAAC,IAAI,CAAC;gBAAE,eAAe;YAAM,GAAG;gBAAE,QAAQ;YAAI;QACnE;QAEA,MAAM,cAAc,KAAK,KAAK,CAAC,QAAQ,KAAK;QAC5C,OAAO,0JAAY,CAAC,IAAI,CAAC;YACvB,eAAe;YACf,GAAG,WAAW;QAChB;IACF,EAAE,OAAO,OAAO;QACd,QAAQ,KAAK,CAAC,uBAAuB;QACrC,OAAO,0JAAY,CAAC,IAAI,CAAC;YAAE,eAAe;QAAM,GAAG;YAAE,QAAQ;QAAI;IACnE;AACF"}}]
+}
