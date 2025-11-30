@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 46, "column": 0}, "map": {"version":3,"sources":["file:///Users/kawamotoshuntasuku/Desktop/dev/oneapp/app/api/auth/logout/route.ts"],"sourcesContent":["import { NextResponse } from \"next/server\"\nimport { cookies } from \"next/headers\"\n\nexport async function POST() {\n  try {\n    const cookieStore = await cookies()\n    cookieStore.delete(\"session\")\n    return NextResponse.json({ success: true })\n  } catch (error) {\n    console.error(\"[v0] Logout error:\", error)\n    return NextResponse.json({ error: \"ログアウト処理中にエラーが発生しました\" }, { status: 500 })\n  }\n}\n"],"names":[],"mappings":";;;;AAAA;AACA;;;AAEO,eAAe;IACpB,IAAI;QACF,MAAM,cAAc,MAAM,IAAA,sJAAO;QACjC,YAAY,MAAM,CAAC;QACnB,OAAO,0JAAY,CAAC,IAAI,CAAC;YAAE,SAAS;QAAK;IAC3C,EAAE,OAAO,OAAO;QACd,QAAQ,KAAK,CAAC,sBAAsB;QACpC,OAAO,0JAAY,CAAC,IAAI,CAAC;YAAE,OAAO;QAAsB,GAAG;YAAE,QAAQ;QAAI;IAC3E;AACF"}}]
-}
