@@ -29,7 +29,7 @@ const categorizeItem = (details: string): string | null => {
 
 const categorizeCourse = (details: string): string | null => {
   if (!details) return null
-  if (details.includes("プレミアム")) return "プレミアム"
+  if (details.includes("プレミアム") || details.includes("月額980円")) return "プレミアム"
   if (details.includes("プラス")) return "プラス"
   if (details.includes("ナイアガラ")) return "ナイアガラ"
   if (details.includes("セラミック")) return "セラミック"
