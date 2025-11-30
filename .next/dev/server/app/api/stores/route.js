@@ -1,0 +1,10 @@
+var R=require("../../../chunks/[turbopack]_runtime.js")("server/app/api/stores/route.js")
+R.c("server/chunks/91cf7_next_20d2aaa5._.js")
+R.c("server/chunks/91cf7_mysql2_f9c02228._.js")
+R.c("server/chunks/91cf7_iconv-lite_0ff75ea5._.js")
+R.c("server/chunks/91cf7_aws-ssl-profiles_lib_cc0490df._.js")
+R.c("server/chunks/91cf7_12c9a61b._.js")
+R.c("server/chunks/[root-of-the-server]__afe75437._.js")
+R.c("server/chunks/oneapp__next-internal_server_app_api_stores_route_actions_b9baf8ee.js")
+R.m("[project]/oneapp/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/oneapp/app/api/stores/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)")
+module.exports=R.m("[project]/oneapp/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/oneapp/app/api/stores/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)").exports
