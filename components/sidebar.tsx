@@ -14,6 +14,7 @@ import {
   ExternalLink,
   LogOut,
   Store,
+  Trophy,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/components/auth-provider"
@@ -35,6 +36,12 @@ const menuItems = [
     name: "行事カレンダー",
     href: "/calendar",
     icon: CalendarDays,
+    external: false,
+  },
+  {
+    name: "キャンペーン結果",
+    href: "/campaign",
+    icon: Trophy,
     external: false,
   },
   {
