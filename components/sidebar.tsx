@@ -39,7 +39,7 @@ const menuItems = [
     external: false,
   },
   {
-    name: "キャンペーン結果",
+    name: "キャンペーン",
     href: "/campaign",
     icon: Trophy,
     external: false,

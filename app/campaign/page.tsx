@@ -52,7 +52,9 @@ const groupItems = (items: { details: string; count: number }[]) => {
 
     let groupName: string
 
-    if (details.includes("新規")) {
+    if (details.includes("インスタ")) {
+      groupName = "インスタ"
+    } else if (details.includes("新規")) {
       groupName = "新規"
     } else if (details.includes("リピ")) {
       groupName = "リピート"
@@ -69,6 +71,8 @@ const groupItems = (items: { details: string; count: number }[]) => {
     } else if (details.includes("キャンペーン")) {
       groupName = "キャンペーン"
     } else if (details.includes("プラン")) {
+      groupName = "その他"
+    } else if (details.includes("新前橋無料券") || details.includes("太田新田無料券")) {
       groupName = "その他"
     } else {
       groupName = details
@@ -90,6 +94,37 @@ const groupItems = (items: { details: string; count: number }[]) => {
 export default function CampaignPage() {
   const [data, setData] = useState<CampaignData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set())
+
+  const campaignInfo = {
+    足利緑町店: {
+      days: 35,
+      promotions: ["無料開放", "39_2ヶ月間", "PRタイムズ", "チラシ（2.5万部）"],
+    },
+    新前橋店: {
+      days: 43,
+      promotions: [
+        "39_1ヶ月間",
+        "PRタイムズ",
+        "チラシ（5万部）",
+        "モテコ",
+        "インスタけーちゃん",
+        "インスタよここ",
+        "インスタにわつる",
+      ],
+    },
+    太田新田店: {
+      days: 52,
+      promotions: [
+        "初回100円",
+        "39_1ヶ月間",
+        "PRタイムズ",
+        "チラシ（1.35万部）※ジョイフォン",
+        "インスタけーちゃん",
+        "インスタ歩き方",
+      ],
+    },
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -145,6 +180,8 @@ export default function CampaignPage() {
       groups: groupItems(data.ashikaga.posItems),
       weeklySubsc: data.ashikaga.weeklySubsc || {},
       weeklyPos: data.ashikaga.weeklyPos || {},
+      campaignDays: campaignInfo.足利緑町店.days,
+      promotions: campaignInfo.足利緑町店.promotions,
     },
     {
       name: "新前橋店",
@@ -154,6 +191,8 @@ export default function CampaignPage() {
       groups: groupItems(data.shinmaebashi.posItems),
       weeklySubsc: data.shinmaebashi.weeklySubsc || {},
       weeklyPos: data.shinmaebashi.weeklyPos || {},
+      campaignDays: campaignInfo.新前橋店.days,
+      promotions: campaignInfo.新前橋店.promotions,
     },
     {
       name: "太田新田店",
@@ -163,6 +202,8 @@ export default function CampaignPage() {
       groups: groupItems(data.otaShinta.posItems),
       weeklySubsc: data.otaShinta.weeklySubsc || {},
       weeklyPos: data.otaShinta.weeklyPos || {},
+      campaignDays: campaignInfo.太田新田店.days,
+      promotions: campaignInfo.太田新田店.promotions,
     },
   ]
 
@@ -189,6 +230,44 @@ export default function CampaignPage() {
   const grandTotal = stores.reduce((sum, store) => sum + store.total, 0)
   const totalSubsc = stores.reduce((sum, store) => sum + store.subscCount, 0)
 
+  const handleLegendClick = (dataKey: string) => {
+    setHiddenSeries((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(dataKey)) {
+        newSet.delete(dataKey)
+      } else {
+        newSet.add(dataKey)
+      }
+      return newSet
+    })
+  }
+
+  const renderLegend = (props: any) => {
+    const { payload } = props
+    return (
+      <div className="flex flex-wrap justify-center gap-4 pt-5">
+        {payload.map((entry: any, index: number) => {
+          const isHidden = hiddenSeries.has(entry.dataKey)
+          const displayName = entry.value.replace("_台数", "")
+          return (
+            <button
+              key={`legend-${index}`}
+              onClick={() => handleLegendClick(entry.dataKey)}
+              className={`flex items-center gap-2 px-2 py-1 rounded transition-opacity ${
+                isHidden ? "opacity-40" : "opacity-100"
+              } hover:bg-gray-100`}
+            >
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
+              <span className={`text-sm ${isHidden ? "line-through text-gray-400" : "text-gray-700"}`}>
+                {displayName}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
     <AppLayout>
       <div className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 p-4 md:p-6">
@@ -197,9 +276,11 @@ export default function CampaignPage() {
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">キャンペーン結果比較</h1>
             </div>
-            <div className="hidden md:flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-full shadow-sm border border-amber-200">
-              <Calendar className="w-4 h-4 text-amber-600" />
-              <span className="text-sm text-gray-600">キャンペーン期間比較</span>
+            <div className="flex items-center gap-3">
+              <div className="hidden md:flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-full shadow-sm border border-amber-200">
+                <Calendar className="w-4 h-4 text-amber-600" />
+                <span className="text-sm text-gray-600">キャンペーン期間比較</span>
+              </div>
             </div>
           </div>
 
@@ -213,26 +294,55 @@ export default function CampaignPage() {
                   <div className="bg-gradient-to-r from-amber-400 to-yellow-400 p-5">
                     <h2 className="text-xl font-bold text-white">{store.name}</h2>
                     <p className="text-white/80 text-sm mt-1">{store.period}</p>
+                    <p className="text-white/90 text-sm mt-1 font-medium">キャンペーン日数：{store.campaignDays}日間</p>
                   </div>
 
                   <div className="p-5 space-y-4">
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <p className="text-xs font-medium text-gray-500 mb-2">プロモーション</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {store.promotions.map((promo, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-block bg-white border border-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full"
+                          >
+                            {promo}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3">
                       <div className="bg-amber-50 rounded-xl p-4">
                         <p className="text-xs text-gray-500 mb-1">合計台数</p>
                         <p className="text-2xl font-bold text-amber-600">{store.total.toLocaleString()}</p>
                         <p className="text-xs text-gray-400">台</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          平均{" "}
+                          <span className="font-medium text-amber-600">
+                            {(store.total / store.campaignDays).toFixed(1)}
+                          </span>{" "}
+                          台/日
+                        </p>
                       </div>
                       <div className="bg-green-50 rounded-xl p-4">
                         <p className="text-xs text-gray-500 mb-1">サブスク入会</p>
                         <p className="text-2xl font-bold text-green-600">{store.subscCount.toLocaleString()}</p>
                         <p className="text-xs text-gray-400">人</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          平均{" "}
+                          <span className="font-medium text-green-600">
+                            {(store.subscCount / store.campaignDays).toFixed(1)}
+                          </span>{" "}
+                          人/日
+                        </p>
                       </div>
                     </div>
 
                     <div className="pt-4 border-t border-gray-100">
                       <p className="text-xs font-medium text-gray-500 mb-3">アイテム内訳</p>
                       <div className="space-y-2">
-                        {store.groups.slice(0, 6).map((group, idx) => (
+                        {store.groups.map((group, idx) => (
                           <div key={idx} className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 rounded-full bg-amber-400" />
@@ -241,9 +351,6 @@ export default function CampaignPage() {
                             <span className="text-sm font-medium text-gray-900">{group.count.toLocaleString()}台</span>
                           </div>
                         ))}
-                        {store.groups.length > 6 && (
-                          <p className="text-xs text-gray-400 text-center pt-2">他 {store.groups.length - 6} 件</p>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -264,6 +371,7 @@ export default function CampaignPage() {
                 <span>折れ線: 合計台数</span>
               </div>
             </div>
+            <p className="text-xs text-gray-400 mb-4">※ 凡例をクリックすると表示/非表示を切り替えられます</p>
             <div className="h-[450px]">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={weeklyChartData} margin={{ top: 20, right: 60, left: 20, bottom: 5 }}>
@@ -290,20 +398,31 @@ export default function CampaignPage() {
                       boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                     }}
                     formatter={(value: number, name: string) => {
+                      if (hiddenSeries.has(name)) return [null, null]
                       const unit = name.includes("台数") ? "台" : "人"
                       const displayName = name.replace("_台数", "")
                       return [`${value.toLocaleString()}${unit}`, displayName]
                     }}
                   />
-                  <Legend
-                    wrapperStyle={{ paddingTop: "20px" }}
-                    iconType="circle"
-                    formatter={(value: string) => value.replace("_台数", "")}
-                  />
+                  <Legend content={renderLegend} />
                   {/* 足利緑町店（棒グラフのみ） */}
-                  <Bar yAxisId="left" dataKey="足利緑町店" fill="#fdba74" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar
+                    yAxisId="left"
+                    dataKey="足利緑町店"
+                    fill="#fdba74"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={40}
+                    hide={hiddenSeries.has("足利緑町店")}
+                  />
                   {/* 新前橋店（棒グラフ + 折れ線グラフ） */}
-                  <Bar yAxisId="left" dataKey="新前橋店" fill="#86efac" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar
+                    yAxisId="left"
+                    dataKey="新前橋店"
+                    fill="#86efac"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={40}
+                    hide={hiddenSeries.has("新前橋店")}
+                  />
                   <Line
                     yAxisId="right"
                     type="monotone"
@@ -312,9 +431,17 @@ export default function CampaignPage() {
                     strokeWidth={2}
                     dot={{ r: 2, fill: "#86efac" }}
                     activeDot={{ r: 4 }}
+                    hide={hiddenSeries.has("新前橋店_台数")}
                   />
                   {/* 太田新田店（棒グラフ + 折れ線グラフ） */}
-                  <Bar yAxisId="left" dataKey="太田新田店" fill="#93c5fd" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar
+                    yAxisId="left"
+                    dataKey="太田新田店"
+                    fill="#93c5fd"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={40}
+                    hide={hiddenSeries.has("太田新田店")}
+                  />
                   <Line
                     yAxisId="right"
                     type="monotone"
@@ -323,6 +450,7 @@ export default function CampaignPage() {
                     strokeWidth={2}
                     dot={{ r: 2, fill: "#93c5fd" }}
                     activeDot={{ r: 4 }}
+                    hide={hiddenSeries.has("太田新田店_台数")}
                   />
                 </ComposedChart>
               </ResponsiveContainer>
