@@ -68,19 +68,19 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-yellow-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* ロゴ・タイトル */}
+        {/* ロゴ・タイトル - 青色ベースに変更 */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-yellow-400 rounded-2xl shadow-lg mb-4">
-            <span className="text-3xl font-bold text-gray-900">ONE</span>
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-600 rounded-2xl shadow-lg mb-4">
+            <span className="text-3xl font-bold text-white">ONE</span>
           </div>
           <h1 className="text-3xl font-bold text-gray-900">ONEAPP</h1>
           <p className="text-gray-600 mt-2">店舗管理システムにログイン</p>
         </div>
 
-        {/* ログインフォーム */}
-        <div className="bg-white rounded-2xl shadow-xl border-2 border-yellow-400 p-8">
+        {/* ログインフォーム - 青色ベースに変更 */}
+        <div className="bg-white rounded-2xl shadow-xl border-2 border-blue-400 p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">{error}</div>
@@ -93,7 +93,7 @@ export default function LoginPage() {
                 value={selectedStore}
                 onChange={(e) => setSelectedStore(e.target.value)}
                 required
-                className="w-full px-4 py-3 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 bg-white text-gray-900 appearance-none cursor-pointer"
+                className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-white text-gray-900 appearance-none cursor-pointer"
               >
                 <option value="">店舗を選択してください</option>
                 {stores.map((store) => (
@@ -113,7 +113,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="example@example.com"
-                className="w-full px-4 py-3 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400"
+                className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
               />
             </div>
 
@@ -127,7 +127,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   placeholder="パスワードを入力"
-                  className="w-full px-4 py-3 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 pr-12"
+                  className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 pr-12"
                 />
                 <button
                   type="button"
@@ -139,14 +139,14 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* ログインボタン */}
+            {/* ログインボタン - 青色に変更 */}
             <button
               type="submit"
               disabled={isLoading || !selectedStore || !email || !password}
-              className="w-full py-3 bg-yellow-400 text-gray-900 font-bold rounded-lg hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 shadow-md"
+              className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 shadow-md"
             >
               {isLoading ? (
-                <div className="w-5 h-5 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
                   <LogIn className="h-5 w-5" />
