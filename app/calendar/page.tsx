@@ -88,44 +88,29 @@ export default function CalendarPage() {
   }
 
   const fetchEvents = async (date: Date) => {
-    console.log("[v0] fetchEvents called for:", date.getFullYear(), date.getMonth() + 1)
     try {
       const year = date.getFullYear()
       const month = date.getMonth() + 1
       const url = `/api/calendar?year=${year}&month=${month}`
-      console.log("[v0] Fetching from URL:", url)
 
       const res = await fetch(url)
-      console.log("[v0] API response status:", res.status)
 
       const holidayEvents = getHolidayEvents(date)
-      console.log("[v0] Holiday events count:", holidayEvents.length)
 
       if (res.ok) {
         const data = await res.json()
-        console.log("[v0] API returned data:", JSON.stringify(data))
-        console.log("[v0] Is array:", Array.isArray(data))
-        console.log("[v0] Data length:", Array.isArray(data) ? data.length : "N/A")
 
         if (Array.isArray(data)) {
-          data.forEach((event: CalendarEvent, i: number) => {
-            console.log(`[v0] DB Event ${i}:`, event.id, event.title, event.date, event.color)
-          })
-
           const allEvents = [...holidayEvents, ...data]
-          console.log("[v0] Total events to display:", allEvents.length)
           setEvents(allEvents)
         } else {
-          console.log("[v0] Data is not an array, using only holidays")
           setEvents(holidayEvents)
         }
       } else {
-        const errorText = await res.text()
-        console.log("[v0] API response not ok:", errorText)
         setEvents(holidayEvents)
       }
     } catch (error) {
-      console.error("[v0] Failed to fetch events:", error)
+      console.error("Failed to fetch events:", error)
       if (date) {
         setEvents(getHolidayEvents(date))
       }
@@ -216,11 +201,9 @@ export default function CalendarPage() {
         setIsModalOpen(false)
         setNewEventTitle("")
 
-        // イベントを再取得
         if (currentDate) {
           await fetchEvents(currentDate)
 
-          // 詳細モーダルを更新して再表示
           const holidayEvents = getHolidayEvents(currentDate)
           const year = currentDate.getFullYear()
           const month = currentDate.getMonth() + 1
@@ -337,8 +320,8 @@ export default function CalendarPage() {
   if (!isClient || !currentDate) {
     return (
       <AppLayout>
-        <div className="min-h-screen bg-yellow-50 p-4 md:p-6 flex items-center justify-center">
-          <div className="text-yellow-700">読み込み中...</div>
+        <div className="min-h-screen bg-blue-50 p-4 md:p-6 flex items-center justify-center">
+          <div className="text-blue-700">読み込み中...</div>
         </div>
       </AppLayout>
     )
@@ -356,26 +339,23 @@ export default function CalendarPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-yellow-50 p-4 md:p-6">
-        {/* ヘッダー - 黄色ベース */}
-        <div className="bg-white rounded-lg shadow-sm border-2 border-yellow-400 p-4 mb-4">
+      <div className="min-h-screen bg-blue-50 p-4 md:p-6">
+        {/* ヘッダー - 青色ベースに変更 */}
+        <div className="bg-white rounded-lg shadow-sm border-2 border-blue-400 p-4 mb-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
               <button
                 onClick={goToToday}
-                className="px-4 py-2 bg-yellow-400 text-gray-900 font-semibold rounded-lg hover:bg-yellow-500 transition-colors"
+                className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
               >
                 今日
               </button>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => changeMonth(-1)}
-                  className="p-2 hover:bg-yellow-100 rounded-lg transition-colors"
-                >
-                  <ChevronLeft className="h-5 w-5 text-yellow-700" />
+                <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-blue-100 rounded-lg transition-colors">
+                  <ChevronLeft className="h-5 w-5 text-blue-700" />
                 </button>
-                <button onClick={() => changeMonth(1)} className="p-2 hover:bg-yellow-100 rounded-lg transition-colors">
-                  <ChevronRight className="h-5 w-5 text-yellow-700" />
+                <button onClick={() => changeMonth(1)} className="p-2 hover:bg-blue-100 rounded-lg transition-colors">
+                  <ChevronRight className="h-5 w-5 text-blue-700" />
                 </button>
               </div>
               <h1 className="text-xl font-bold text-gray-900">
@@ -385,15 +365,15 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        {/* カレンダー - 黄色ベース */}
-        <div className="bg-white rounded-lg shadow-sm border-2 border-yellow-400 overflow-hidden">
-          {/* 曜日ヘッダー - 黄色背景 */}
-          <div className="grid grid-cols-7 bg-yellow-400">
+        {/* カレンダー - 青色ベースに変更 */}
+        <div className="bg-white rounded-lg shadow-sm border-2 border-blue-400 overflow-hidden">
+          {/* 曜日ヘッダー - 青色背景 */}
+          <div className="grid grid-cols-7 bg-blue-600">
             {weekDays.map((day, index) => (
               <div
                 key={day}
                 className={`py-3 text-center text-sm font-bold ${
-                  index === 0 ? "text-red-600" : index === 6 ? "text-blue-600" : "text-gray-900"
+                  index === 0 ? "text-red-300" : index === 6 ? "text-blue-200" : "text-white"
                 }`}
               >
                 {day}
@@ -418,15 +398,15 @@ export default function CalendarPage() {
                 <div
                   key={index}
                   onClick={() => openDetailModal(day.date, dayEvents)}
-                  className={`min-h-[80px] md:min-h-[120px] border-b border-r border-yellow-200 p-1 cursor-pointer ${
-                    !day.isCurrentMonth ? "bg-yellow-50/50" : "bg-white"
-                  } hover:bg-yellow-50 transition-colors`}
+                  className={`min-h-[80px] md:min-h-[120px] border-b border-r border-blue-200 p-1 cursor-pointer ${
+                    !day.isCurrentMonth ? "bg-blue-50/50" : "bg-white"
+                  } hover:bg-blue-50 transition-colors`}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span
                       className={`text-sm w-7 h-7 flex items-center justify-center rounded-full ${
                         isToday
-                          ? "bg-yellow-400 text-gray-900 font-bold shadow-md"
+                          ? "bg-blue-600 text-white font-bold shadow-md"
                           : !day.isCurrentMonth
                             ? "text-gray-400"
                             : isHoliday || dayOfWeek === 0
@@ -441,7 +421,7 @@ export default function CalendarPage() {
                       {day.date.getDate()}
                     </span>
                     {dayEvents.length > 0 && (
-                      <span className="md:hidden text-xs bg-yellow-400 text-gray-900 rounded-full px-1.5 py-0.5 font-medium">
+                      <span className="md:hidden text-xs bg-blue-600 text-white rounded-full px-1.5 py-0.5 font-medium">
                         {dayEvents.length}
                       </span>
                     )}
@@ -451,9 +431,9 @@ export default function CalendarPage() {
                           e.stopPropagation()
                           openAddModal(day.date)
                         }}
-                        className="hidden md:block p-1 hover:bg-yellow-200 rounded opacity-0 hover:opacity-100 transition-all"
+                        className="hidden md:block p-1 hover:bg-blue-200 rounded opacity-0 hover:opacity-100 transition-all"
                       >
-                        <Plus className="h-4 w-4 text-yellow-600" />
+                        <Plus className="h-4 w-4 text-blue-600" />
                       </button>
                     )}
                   </div>
@@ -483,7 +463,7 @@ export default function CalendarPage() {
                       )
                     })}
                     {dayEvents.length > 3 && (
-                      <div className="text-xs text-yellow-700 px-1 font-medium">+{dayEvents.length - 3}件</div>
+                      <div className="text-xs text-blue-700 px-1 font-medium">+{dayEvents.length - 3}件</div>
                     )}
                   </div>
                 </div>
@@ -492,17 +472,17 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        {/* 詳細モーダル */}
+        {/* 詳細モーダル - 青色ベースに変更 */}
         {isDetailModalOpen && selectedDateForDetail && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md border-2 border-yellow-400 max-h-[80vh] flex flex-col">
-              <div className="flex items-center justify-between p-4 border-b border-yellow-200 bg-yellow-400">
-                <h2 className="text-lg font-bold text-gray-900">{formatDateDisplay(selectedDateForDetail)}</h2>
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md border-2 border-blue-400 max-h-[80vh] flex flex-col">
+              <div className="flex items-center justify-between p-4 border-b border-blue-200 bg-blue-600">
+                <h2 className="text-lg font-bold text-white">{formatDateDisplay(selectedDateForDetail)}</h2>
                 <button
                   onClick={() => setIsDetailModalOpen(false)}
-                  className="p-1 hover:bg-yellow-500 rounded transition-colors"
+                  className="p-1 hover:bg-blue-700 rounded transition-colors"
                 >
-                  <X className="h-5 w-5 text-gray-900" />
+                  <X className="h-5 w-5 text-white" />
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-4">
@@ -535,12 +515,12 @@ export default function CalendarPage() {
                   </div>
                 )}
               </div>
-              <div className="p-4 border-t border-yellow-200">
+              <div className="p-4 border-t border-blue-200">
                 <button
                   onClick={openAddModalFromDetail}
-                  className="w-full py-2 bg-yellow-400 text-gray-900 font-semibold rounded-lg hover:bg-yellow-500 transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                 >
-                  <Plus className="h-5 w-5" />
+                  <Plus className="h-4 w-4" />
                   イベントを追加
                 </button>
               </div>
@@ -548,28 +528,23 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {/* イベント追加モーダル */}
+        {/* 追加モーダル - 青色ベースに変更 */}
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md border-2 border-yellow-400">
-              <div className="flex items-center justify-between p-4 border-b border-yellow-200 bg-yellow-400">
-                <h2 className="text-lg font-bold text-gray-900">イベントを追加</h2>
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md border-2 border-blue-400">
+              <div className="flex items-center justify-between p-4 border-b border-blue-200 bg-blue-600">
+                <h2 className="text-lg font-bold text-white">イベントを追加</h2>
                 <button
                   onClick={() => setIsModalOpen(false)}
-                  className="p-1 hover:bg-yellow-500 rounded transition-colors"
+                  className="p-1 hover:bg-blue-700 rounded transition-colors"
                 >
-                  <X className="h-5 w-5 text-gray-900" />
+                  <X className="h-5 w-5 text-white" />
                 </button>
               </div>
               <div className="p-4 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">日付</label>
-                  <input
-                    type="date"
-                    value={selectedDate || ""}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400"
-                  />
+                  <p className="text-gray-900">{selectedDate && formatDateDisplay(selectedDate)}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">タイトル</label>
@@ -577,8 +552,8 @@ export default function CalendarPage() {
                     type="text"
                     value={newEventTitle}
                     onChange={(e) => setNewEventTitle(e.target.value)}
+                    className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
                     placeholder="イベント名を入力"
-                    className="w-full px-3 py-2 border-2 border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400"
                   />
                 </div>
                 <div>
@@ -588,8 +563,8 @@ export default function CalendarPage() {
                       <button
                         key={color.value}
                         onClick={() => setNewEventColor(color.value)}
-                        className={`w-8 h-8 rounded-full border-2 transition-transform ${
-                          newEventColor === color.value ? "border-gray-900 scale-110 shadow-md" : "border-gray-300"
+                        className={`w-8 h-8 rounded-full border-2 transition-all ${
+                          newEventColor === color.value ? "border-gray-900 scale-110" : "border-transparent"
                         }`}
                         style={{ backgroundColor: color.value }}
                         title={color.name}
@@ -598,19 +573,19 @@ export default function CalendarPage() {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-3 p-4 border-t border-yellow-200">
+              <div className="p-4 border-t border-blue-200 flex gap-3">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="flex-1 py-2 border-2 border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  キャンセル
+                </button>
                 <button
                   onClick={addEvent}
                   disabled={isLoading || !newEventTitle.trim()}
-                  className="flex-1 py-2 bg-yellow-400 text-gray-900 font-semibold rounded-lg hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex-1 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                 >
                   {isLoading ? "追加中..." : "追加"}
-                </button>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border-2 border-yellow-400 text-yellow-700 font-semibold rounded-lg hover:bg-yellow-50 transition-colors"
-                >
-                  キャンセル
                 </button>
               </div>
             </div>

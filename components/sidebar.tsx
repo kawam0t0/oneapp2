@@ -88,24 +88,24 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          "fixed top-0 left-0 z-50 h-full w-64 bg-yellow-400 shadow-lg transform transition-transform duration-300 ease-in-out flex flex-col",
+          "fixed top-0 left-0 z-50 h-full w-64 bg-blue-600 shadow-lg transform transition-transform duration-300 ease-in-out flex flex-col",
           isOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex items-center justify-between p-4 border-b border-yellow-500">
-          <h1 className="text-lg font-bold text-gray-900">ONEAPP</h1>
+        <div className="flex items-center justify-between p-4 border-b border-blue-500">
+          <h1 className="text-lg font-bold text-white">ONEAPP</h1>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-1 rounded-md hover:bg-yellow-500"
+            className="p-1 rounded-md hover:bg-blue-500"
             aria-label="メニューを閉じる"
           >
-            <X className="h-5 w-5 text-gray-700" />
+            <X className="h-5 w-5 text-white" />
           </button>
         </div>
 
         {session && (
-          <div className="px-4 py-3 border-b border-yellow-500 bg-yellow-300">
-            <div className="flex items-center gap-2 text-gray-800">
+          <div className="px-4 py-3 border-b border-blue-500 bg-blue-700">
+            <div className="flex items-center gap-2 text-white">
               <Store className="h-4 w-4" />
               <span className="text-sm font-medium truncate">{session.store_name}</span>
             </div>
@@ -125,13 +125,13 @@ export function Sidebar() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-lg text-gray-800 hover:bg-yellow-500 transition-colors",
+                    "flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-blue-500 transition-colors",
                   )}
                   onClick={() => setIsOpen(false)}
                 >
                   <Icon className="h-5 w-5" />
                   <span className="flex-1">{item.name}</span>
-                  <ExternalLink className="h-4 w-4 text-gray-600" />
+                  <ExternalLink className="h-4 w-4 text-blue-200" />
                 </a>
               )
             }
@@ -142,7 +142,7 @@ export function Sidebar() {
                 href={item.href}
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
-                  isActive ? "bg-gray-900 text-white font-semibold" : "text-gray-800 hover:bg-yellow-500",
+                  isActive ? "bg-white text-blue-600 font-semibold" : "text-white hover:bg-blue-500",
                 )}
                 onClick={() => setIsOpen(false)}
               >
@@ -153,10 +153,10 @@ export function Sidebar() {
           })}
         </nav>
 
-        <div className="p-4 border-t border-yellow-500">
+        <div className="p-4 border-t border-blue-500">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-gray-800 hover:bg-red-500 hover:text-white transition-colors"
+            className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-white hover:bg-red-500 transition-colors"
           >
             <LogOut className="h-5 w-5" />
             <span>ログアウト</span>

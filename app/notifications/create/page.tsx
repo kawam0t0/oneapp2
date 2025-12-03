@@ -57,7 +57,7 @@ export default function CreateNotificationPage() {
           戻る
         </Link>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-xl shadow-sm border-2 border-blue-200 p-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">お知らせを作成</h1>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -74,7 +74,7 @@ export default function CreateNotificationPage() {
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 outline-none transition-colors"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none transition-colors"
                 placeholder="お知らせのタイトルを入力"
               />
             </div>
@@ -89,7 +89,7 @@ export default function CreateNotificationPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? "投稿中..." : "お知らせを投稿"}
               </button>

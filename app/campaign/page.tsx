@@ -146,9 +146,9 @@ export default function CampaignPage() {
   if (isLoading) {
     return (
       <AppLayout>
-        <div className="min-h-screen bg-gradient-to-br from-amber-50 to-yellow-100 p-6 flex items-center justify-center">
-          <div className="flex items-center gap-3 text-amber-700">
-            <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-sky-100 p-6 flex items-center justify-center">
+          <div className="flex items-center gap-3 text-blue-700">
+            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
             <span className="font-medium">読み込み中...</span>
           </div>
         </div>
@@ -159,7 +159,7 @@ export default function CampaignPage() {
   if (!data) {
     return (
       <AppLayout>
-        <div className="min-h-screen bg-gradient-to-br from-amber-50 to-yellow-100 p-6 flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-sky-100 p-6 flex items-center justify-center">
           <div className="text-red-500 font-medium">データの取得に失敗しました</div>
         </div>
       </AppLayout>
@@ -270,15 +270,15 @@ export default function CampaignPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 p-4 md:p-6">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-sky-50 to-indigo-50 p-4 md:p-6">
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">キャンペーン結果比較</h1>
             </div>
             <div className="flex items-center gap-3">
-              <div className="hidden md:flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-full shadow-sm border border-amber-200">
-                <Calendar className="w-4 h-4 text-amber-600" />
+              <div className="hidden md:flex items-center gap-2 bg-white/80 backdrop-blur px-4 py-2 rounded-full shadow-sm border border-blue-200">
+                <Calendar className="w-4 h-4 text-blue-600" />
                 <span className="text-sm text-gray-600">キャンペーン期間比較</span>
               </div>
             </div>
@@ -289,9 +289,9 @@ export default function CampaignPage() {
               return (
                 <div
                   key={index}
-                  className="bg-white rounded-2xl shadow-sm border border-amber-100 overflow-hidden hover:shadow-md transition-shadow"
+                  className="bg-white rounded-2xl shadow-sm border border-blue-100 overflow-hidden hover:shadow-md transition-shadow"
                 >
-                  <div className="bg-gradient-to-r from-amber-400 to-yellow-400 p-5">
+                  <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-5">
                     <h2 className="text-xl font-bold text-white">{store.name}</h2>
                     <p className="text-white/80 text-sm mt-1">{store.period}</p>
                     <p className="text-white/90 text-sm mt-1 font-medium">キャンペーン日数：{store.campaignDays}日間</p>
@@ -313,13 +313,13 @@ export default function CampaignPage() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-amber-50 rounded-xl p-4">
+                      <div className="bg-blue-50 rounded-xl p-4">
                         <p className="text-xs text-gray-500 mb-1">合計台数</p>
-                        <p className="text-2xl font-bold text-amber-600">{store.total.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-blue-600">{store.total.toLocaleString()}</p>
                         <p className="text-xs text-gray-400">台</p>
                         <p className="text-xs text-gray-500 mt-1">
                           平均{" "}
-                          <span className="font-medium text-amber-600">
+                          <span className="font-medium text-blue-600">
                             {(store.total / store.campaignDays).toFixed(1)}
                           </span>{" "}
                           台/日
@@ -345,7 +345,7 @@ export default function CampaignPage() {
                         {store.groups.map((group, idx) => (
                           <div key={idx} className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full bg-amber-400" />
+                              <div className="w-2 h-2 rounded-full bg-blue-400" />
                               <span className="text-sm text-gray-600">{group.name}</span>
                             </div>
                             <span className="text-sm font-medium text-gray-900">{group.count.toLocaleString()}台</span>
@@ -359,15 +359,15 @@ export default function CampaignPage() {
             })}
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-amber-100 p-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-2">週別サブスク入会数・合計台数推移</h2>
             <div className="flex items-center gap-6 text-sm text-gray-500 mb-4">
               <div className="flex items-center gap-2">
-                <div className="w-4 h-3 bg-amber-200 rounded" />
+                <div className="w-4 h-3 bg-blue-200 rounded" />
                 <span>棒グラフ: サブスク入会数</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-0.5 bg-amber-600" />
+                <div className="w-4 h-0.5 bg-blue-600" />
                 <span>折れ線: 合計台数</span>
               </div>
             </div>
@@ -409,7 +409,7 @@ export default function CampaignPage() {
                   <Bar
                     yAxisId="left"
                     dataKey="足利緑町店"
-                    fill="#fdba74"
+                    fill="#93c5fd"
                     radius={[4, 4, 0, 0]}
                     maxBarSize={40}
                     hide={hiddenSeries.has("足利緑町店")}
@@ -418,7 +418,7 @@ export default function CampaignPage() {
                   <Bar
                     yAxisId="left"
                     dataKey="新前橋店"
-                    fill="#86efac"
+                    fill="#6ee7b7"
                     radius={[4, 4, 0, 0]}
                     maxBarSize={40}
                     hide={hiddenSeries.has("新前橋店")}
@@ -427,9 +427,9 @@ export default function CampaignPage() {
                     yAxisId="right"
                     type="monotone"
                     dataKey="新前橋店_台数"
-                    stroke="#86efac"
+                    stroke="#6ee7b7"
                     strokeWidth={2}
-                    dot={{ r: 2, fill: "#86efac" }}
+                    dot={{ r: 2, fill: "#6ee7b7" }}
                     activeDot={{ r: 4 }}
                     hide={hiddenSeries.has("新前橋店_台数")}
                   />
@@ -437,7 +437,7 @@ export default function CampaignPage() {
                   <Bar
                     yAxisId="left"
                     dataKey="太田新田店"
-                    fill="#93c5fd"
+                    fill="#c4b5fd"
                     radius={[4, 4, 0, 0]}
                     maxBarSize={40}
                     hide={hiddenSeries.has("太田新田店")}
@@ -446,9 +446,9 @@ export default function CampaignPage() {
                     yAxisId="right"
                     type="monotone"
                     dataKey="太田新田店_台数"
-                    stroke="#93c5fd"
+                    stroke="#c4b5fd"
                     strokeWidth={2}
-                    dot={{ r: 2, fill: "#93c5fd" }}
+                    dot={{ r: 2, fill: "#c4b5fd" }}
                     activeDot={{ r: 4 }}
                     hide={hiddenSeries.has("太田新田店_台数")}
                   />
