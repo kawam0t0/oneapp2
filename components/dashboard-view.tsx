@@ -343,13 +343,13 @@ export default function DashboardView() {
                   </div>
 
                   <div className="mb-4">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                      <span>全体シェア</span>
-                      <span>{percentage}%</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm text-gray-500">全体シェア</p>
+                      <p className="text-sm font-bold text-gray-700">{percentage}%</p>
                     </div>
-                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div
-                        className="h-full rounded-full transition-all duration-500"
+                        className="h-full rounded-full"
                         style={{
                           width: `${percentage}%`,
                           backgroundColor: STORE_COLORS[index % STORE_COLORS.length],
@@ -358,20 +358,24 @@ export default function DashboardView() {
                     </div>
                   </div>
 
-                  <div className="border-t border-blue-100 pt-3">
+                  {/* カテゴリ内訳 */}
+                  <div>
                     <p className="text-xs font-medium text-gray-500 mb-2">カテゴリ内訳</p>
                     <div className="space-y-1.5">
                       {Object.entries(store.items)
                         .sort((a, b) => b[1] - a[1])
-                        .slice(0, 4)
-                        .map(([item, count]) => (
-                          <div key={item} className="flex justify-between items-center text-sm">
-                            <span className="text-gray-600 truncate mr-2">{item}</span>
-                            <span className="font-semibold" style={{ color: CATEGORY_COLORS[item] || "#6b7280" }}>
-                              {count}台
-                            </span>
-                          </div>
-                        ))}
+                        .slice(0, 5)
+                        .map(([itemName, count]) => {
+                          const todayCount = todayStore?.items?.[itemName] || 0
+                          return (
+                            <div key={itemName} className="flex justify-between items-center">
+                              <span className="text-xs text-gray-600">{itemName}</span>
+                              <span className="text-xs font-semibold text-blue-600">
+                                {count}台<span className="text-green-600 ml-1">({todayCount})</span>
+                              </span>
+                            </div>
+                          )
+                        })}
                     </div>
                   </div>
                 </CardContent>
