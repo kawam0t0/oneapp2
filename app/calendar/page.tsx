@@ -13,7 +13,7 @@ interface CalendarEvent {
   isStoreClosed?: boolean
   isNotice?: boolean
   isOrder?: boolean
-  is_global?: boolean
+  is_global?: boolean | number
   store_id?: number
   store_name?: string // 店舗名を追加
 }
@@ -25,6 +25,44 @@ const STORE_COLOR_MAP: { [key: string]: string } = {
   足利緑町: "#ef4444",
   新前橋: "#a855f7",
   太田新田: "#06b6d4",
+}
+
+// 第N月曜日を計算
+function getNthMondayOfMonth(year: number, month: number, n: number): number {
+  const firstDay = new Date(year, month - 1, 1)
+  const firstDayOfWeek = firstDay.getDay()
+
+  let firstMonday: number
+  if (firstDayOfWeek === 0) {
+    firstMonday = 2
+  } else if (firstDayOfWeek === 1) {
+    firstMonday = 1
+  } else {
+    firstMonday = 1 + (8 - firstDayOfWeek)
+  }
+
+  return firstMonday + (n - 1) * 7
+}
+
+// 春分の日を計算
+function calculateShunbun(year: number): number {
+  if (year >= 1900 && year <= 2099) {
+    return Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4))
+  }
+  return 21
+}
+
+// 秋分の日を計算
+function calculateShubun(year: number): number {
+  if (year >= 1900 && year <= 2099) {
+    return Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4))
+  }
+  return 23
+}
+
+// 日付をフォーマット
+function formatDateStr(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
 }
 
 export default function CalendarPage() {
@@ -39,30 +77,178 @@ export default function CalendarPage() {
 
   const getHolidayEvents = useCallback((date: Date): CalendarEvent[] => {
     const year = date.getFullYear()
-    const holidays: CalendarEvent[] = [
-      { title: "元日", date: `${year}-01-01`, color: "#ef4444", isClosed: true, is_global: true },
-      { title: "成人の日", date: `${year}-01-13`, color: "#f97316", isNotice: true, is_global: true },
-      { title: "建国記念の日", date: `${year}-02-11`, color: "#f97316", isNotice: true, is_global: true },
-      { title: "天皇誕生日", date: `${year}-02-23`, color: "#f97316", isNotice: true, is_global: true },
-      { title: "春分の日", date: `${year}-03-20`, color: "#f97316", isNotice: true, is_global: true },
-      { title: "昭和の日", date: `${year}-04-29`, color: "#f97316", isNotice: true, is_global: true },
-      { title: "憲法記念日", date: `${year}-05-03`, color: "#f97316", isNotice: true, is_global: true },
-      { title: "みどりの日", date: `${year}-05-04`, color: "#f97316", isNotice: true, is_global: true },
-      { title: "こどもの日", date: `${year}-05-05`, color: "#f97316", isNotice: true, is_global: true },
-      { title: "海の日", date: `${year}-07-21`, color: "#f97316", isNotice: true, is_global: true },
-      { title: "山の日", date: `${year}-08-11`, color: "#f97316", isNotice: true, is_global: true },
-      { title: "敬老の日", date: `${year}-09-15`, color: "#f97316", isNotice: true, is_global: true },
-      { title: "秋分の日", date: `${year}-09-23`, color: "#f97316", isNotice: true, is_global: true },
-      { title: "スポーツの日", date: `${year}-10-14`, color: "#f97316", isNotice: true, is_global: true },
-      { title: "文化の日", date: `${year}-11-03`, color: "#f97316", isNotice: true, is_global: true },
-      { title: "勤労感謝の日", date: `${year}-11-23`, color: "#f97316", isNotice: true, is_global: true },
-      { title: "大晦日", date: `${year}-12-31`, color: "#ef4444", isClosed: true, is_global: true },
-    ]
+    const holidays: CalendarEvent[] = []
 
-    const firstDay = new Date(date.getFullYear(), date.getMonth(), 1)
-    const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+    // 固定祝日
+    holidays.push({ title: "元日", date: formatDateStr(year, 1, 1), color: "#ef4444", isClosed: true, is_global: true })
+    holidays.push({
+      title: "建国記念の日",
+      date: formatDateStr(year, 2, 11),
+      color: "#f97316",
+      isNotice: true,
+      is_global: true,
+    })
+    holidays.push({
+      title: "天皇誕生日",
+      date: formatDateStr(year, 2, 23),
+      color: "#f97316",
+      isNotice: true,
+      is_global: true,
+    })
+    holidays.push({
+      title: "昭和の日",
+      date: formatDateStr(year, 4, 29),
+      color: "#f97316",
+      isNotice: true,
+      is_global: true,
+    })
+    holidays.push({
+      title: "憲法記念日",
+      date: formatDateStr(year, 5, 3),
+      color: "#f97316",
+      isNotice: true,
+      is_global: true,
+    })
+    holidays.push({
+      title: "みどりの日",
+      date: formatDateStr(year, 5, 4),
+      color: "#f97316",
+      isNotice: true,
+      is_global: true,
+    })
+    holidays.push({
+      title: "こどもの日",
+      date: formatDateStr(year, 5, 5),
+      color: "#f97316",
+      isNotice: true,
+      is_global: true,
+    })
+    holidays.push({
+      title: "山の日",
+      date: formatDateStr(year, 8, 11),
+      color: "#f97316",
+      isNotice: true,
+      is_global: true,
+    })
+    holidays.push({
+      title: "文化の日",
+      date: formatDateStr(year, 11, 3),
+      color: "#f97316",
+      isNotice: true,
+      is_global: true,
+    })
+    holidays.push({
+      title: "勤労感謝の日",
+      date: formatDateStr(year, 11, 23),
+      color: "#f97316",
+      isNotice: true,
+      is_global: true,
+    })
+    holidays.push({
+      title: "大晦日",
+      date: formatDateStr(year, 12, 31),
+      color: "#ef4444",
+      isClosed: true,
+      is_global: true,
+    })
 
+    // ハッピーマンデー（動的計算）
+    const seijinNoHi = getNthMondayOfMonth(year, 1, 2) // 1月第2月曜日
+    holidays.push({
+      title: "成人の日",
+      date: formatDateStr(year, 1, seijinNoHi),
+      color: "#f97316",
+      isNotice: true,
+      is_global: true,
+    })
 
+    const umiNoHi = getNthMondayOfMonth(year, 7, 3) // 7月第3月曜日
+    holidays.push({
+      title: "海の日",
+      date: formatDateStr(year, 7, umiNoHi),
+      color: "#f97316",
+      isNotice: true,
+      is_global: true,
+    })
+
+    const keirouNoHi = getNthMondayOfMonth(year, 9, 3) // 9月第3月曜日
+    holidays.push({
+      title: "敬老の日",
+      date: formatDateStr(year, 9, keirouNoHi),
+      color: "#f97316",
+      isNotice: true,
+      is_global: true,
+    })
+
+    const sportsNoHi = getNthMondayOfMonth(year, 10, 2) // 10月第2月曜日
+    holidays.push({
+      title: "スポーツの日",
+      date: formatDateStr(year, 10, sportsNoHi),
+      color: "#f97316",
+      isNotice: true,
+      is_global: true,
+    })
+
+    // 春分の日・秋分の日（動的計算）
+    const shunbun = calculateShunbun(year)
+    holidays.push({
+      title: "春分の日",
+      date: formatDateStr(year, 3, shunbun),
+      color: "#f97316",
+      isNotice: true,
+      is_global: true,
+    })
+
+    const shubun = calculateShubun(year)
+    holidays.push({
+      title: "秋分の日",
+      date: formatDateStr(year, 9, shubun),
+      color: "#f97316",
+      isNotice: true,
+      is_global: true,
+    })
+
+    // 振替休日（祝日が日曜の場合）
+    const holidayDates = new Set(holidays.map((h) => h.date))
+    const additionalHolidays: CalendarEvent[] = []
+
+    for (const holiday of holidays) {
+      const d = new Date(holiday.date + "T00:00:00")
+      if (d.getDay() === 0) {
+        // 日曜日
+        const nextDay = new Date(d)
+        nextDay.setDate(nextDay.getDate() + 1)
+        let nextDateStr = formatDateStr(nextDay.getFullYear(), nextDay.getMonth() + 1, nextDay.getDate())
+
+        // 次の日も祝日なら、その次の日へ
+        while (holidayDates.has(nextDateStr)) {
+          nextDay.setDate(nextDay.getDate() + 1)
+          nextDateStr = formatDateStr(nextDay.getFullYear(), nextDay.getMonth() + 1, nextDay.getDate())
+        }
+
+        additionalHolidays.push({
+          title: "振替休日",
+          date: nextDateStr,
+          color: "#f97316",
+          isNotice: true,
+          is_global: true,
+        })
+        holidayDates.add(nextDateStr)
+      }
+    }
+
+    holidays.push(...additionalHolidays)
+
+    // 国民の休日（敬老の日と秋分の日の間）
+    if (shubun - keirouNoHi === 2) {
+      holidays.push({
+        title: "国民の休日",
+        date: formatDateStr(year, 9, keirouNoHi + 1),
+        color: "#f97316",
+        isNotice: true,
+        is_global: true,
+      })
+    }
 
     return holidays
   }, [])
@@ -92,6 +278,10 @@ export default function CalendarPage() {
       setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
     }
   }, [currentDate])
+
+  const handleToday = useCallback(() => {
+    setCurrentDate(new Date())
+  }, [])
 
   const handleDateClick = useCallback((date: Date) => {
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
@@ -269,27 +459,26 @@ export default function CalendarPage() {
         {/* ヘッダー */}
         <div className="bg-white rounded-2xl shadow-lg border-2 border-blue-200 p-4 mb-6">
           <div className="flex items-center justify-between">
-            <button onClick={handlePrevMonth} className="p-2 hover:bg-blue-100 rounded-lg transition-colors">
-              <ChevronLeft className="w-6 h-6 text-blue-600" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={handlePrevMonth} className="p-2 hover:bg-blue-100 rounded-lg transition-colors">
+                <ChevronLeft className="w-6 h-6 text-blue-600" />
+              </button>
+              <button onClick={handleNextMonth} className="p-2 hover:bg-blue-100 rounded-lg transition-colors">
+                <ChevronRight className="w-6 h-6 text-blue-600" />
+              </button>
+              <button
+                onClick={handleToday}
+                className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                今日
+              </button>
+            </div>
             <h2 className="text-xl md:text-2xl font-bold text-gray-900">
               {year}年 {month + 1}月
             </h2>
-            <button onClick={handleNextMonth} className="p-2 hover:bg-blue-100 rounded-lg transition-colors">
-              <ChevronRight className="w-6 h-6 text-blue-600" />
-            </button>
+            {/* 右側にスペースを確保して中央揃えに見せる */}
+            <div className="w-[140px]"></div>
           </div>
-          {currentStoreName && (
-            <div className="mt-2 text-center">
-              <span
-                className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium text-white"
-                style={{ backgroundColor: currentStoreColor }}
-              >
-                <span className="w-2 h-2 bg-white rounded-full"></span>
-                {currentStoreName}のカレンダー
-              </span>
-            </div>
-          )}
         </div>
 
         {/* カレンダーグリッド */}
@@ -385,26 +574,42 @@ export default function CalendarPage() {
                   <div className="space-y-2">
                     {events
                       .filter((e) => e.date === selectedDate)
-                      .map((event, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between p-2 rounded-lg"
-                          style={{ backgroundColor: `${event.color}20` }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: event.color }} />
-                            <span className="text-sm font-medium text-gray-800">{getEventDisplayTitle(event)}</span>
+                      .map((event, index) => {
+                        const isDbEvent = typeof event.id === "number"
+                        const canDelete = isDbEvent
+                        console.log("[v0] Event delete check:", {
+                          title: event.title,
+                          id: event.id,
+                          is_global: event.is_global,
+                          isDbEvent,
+                          canDelete,
+                        })
+
+                        return (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-2 rounded-lg"
+                            style={{ backgroundColor: `${event.color}20` }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: event.color }} />
+                              <span className="text-sm font-medium text-gray-800">{getEventDisplayTitle(event)}</span>
+                            </div>
+                            {canDelete && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteEvent(event.id!)
+                                }}
+                                className="flex items-center gap-1 px-2 py-1 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition-colors text-xs font-medium"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                
+                              </button>
+                            )}
                           </div>
-                          {event.id && !event.is_global && !isOtherStoreClosedDay(event) && (
-                            <button
-                              onClick={() => handleDeleteEvent(event.id!)}
-                              className="p-1 hover:bg-red-100 rounded-full transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4 text-red-500" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                        )
+                      })}
                   </div>
                 ) : (
                   <p className="text-sm text-gray-500">イベントはありません</p>
@@ -423,16 +628,7 @@ export default function CalendarPage() {
                     className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">イベントの色</label>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-8 h-8 rounded-full border-2 border-gray-300"
-                      style={{ backgroundColor: currentStoreColor }}
-                    />
-                    <span className="text-sm text-gray-600">{currentStoreName}の店舗カラーが自動適用されます</span>
-                  </div>
-                </div>
+                <div></div>
               </div>
               <div className="p-4 border-t border-blue-200 flex gap-3">
                 <button

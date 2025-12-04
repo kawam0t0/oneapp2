@@ -33,7 +33,7 @@ const menuItems = [
     external: false,
   },
   {
-    name: "行事カレンダー",
+    name: "カレンダー",
     href: "/calendar",
     icon: CalendarDays,
     external: false,

@@ -55,56 +55,127 @@ const ORDER_DAY_RULES: { month: number; title: string; color: string }[] = [
 function getJapaneseHolidays(year: number): Set<string> {
   const holidays = new Set<string>()
 
+  const addHoliday = (y: number, m: number, d: number) => {
+    holidays.add(`${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`)
+  }
+
   // 固定祝日
-  holidays.add(`${year}-01-01`) // 元日
-  holidays.add(`${year}-02-11`) // 建国記念の日
-  holidays.add(`${year}-02-23`) // 天皇誕生日
-  holidays.add(`${year}-04-29`) // 昭和の日
-  holidays.add(`${year}-05-03`) // 憲法記念日
-  holidays.add(`${year}-05-04`) // みどりの日
-  holidays.add(`${year}-05-05`) // こどもの日
-  holidays.add(`${year}-08-11`) // 山の日
-  holidays.add(`${year}-11-03`) // 文化の日
-  holidays.add(`${year}-11-23`) // 勤労感謝の日
+  addHoliday(year, 1, 1) // 元日
+  addHoliday(year, 2, 11) // 建国記念の日
+  addHoliday(year, 2, 23) // 天皇誕生日
+  addHoliday(year, 4, 29) // 昭和の日
+  addHoliday(year, 5, 3) // 憲法記念日
+  addHoliday(year, 5, 4) // みどりの日
+  addHoliday(year, 5, 5) // こどもの日
+  addHoliday(year, 8, 11) // 山の日
+  addHoliday(year, 11, 3) // 文化の日
+  addHoliday(year, 11, 23) // 勤労感謝の日
 
-  // ハッピーマンデー（第2月曜日など）
+  // ハッピーマンデー - getNthMondayOfMonth を使用
   // 成人の日: 1月第2月曜日
-  holidays.add(getNthDayOfMonth(year, 1, 1, 2))
+  const seijinNoHi = getNthMondayOfMonth(year, 1, 2)
+  addHoliday(year, 1, seijinNoHi)
+
   // 海の日: 7月第3月曜日
-  holidays.add(getNthDayOfMonth(year, 7, 1, 3))
+  const umiNoHi = getNthMondayOfMonth(year, 7, 3)
+  addHoliday(year, 7, umiNoHi)
+
   // 敬老の日: 9月第3月曜日
-  holidays.add(getNthDayOfMonth(year, 9, 1, 3))
+  const keirouNoHi = getNthMondayOfMonth(year, 9, 3)
+  addHoliday(year, 9, keirouNoHi)
+
   // スポーツの日: 10月第2月曜日
-  holidays.add(getNthDayOfMonth(year, 10, 1, 2))
+  const sportsNoHi = getNthMondayOfMonth(year, 10, 2)
+  addHoliday(year, 10, sportsNoHi)
 
-  // 春分の日・秋分の日（計算による近似）
-  const shunbun = Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4))
-  holidays.add(`${year}-03-${String(shunbun).padStart(2, "0")}`)
+  // 春分の日（3月20日または21日）
+  const shunbun = calculateShunbun(year)
+  addHoliday(year, 3, shunbun)
 
-  const shubun = Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4))
-  holidays.add(`${year}-09-${String(shubun).padStart(2, "0")}`)
+  // 秋分の日（9月22日または23日）
+  const shubun = calculateShubun(year)
+  addHoliday(year, 9, shubun)
 
-  // 振替休日の処理（祝日が日曜日の場合、翌月曜日が振替休日）
-  const holidayArray = Array.from(holidays)
+  // 国民の休日（祝日と祝日に挟まれた平日）
+  // 9月の敬老の日と秋分の日の間
+  if (shubun - keirouNoHi === 2) {
+    addHoliday(year, 9, keirouNoHi + 1)
+  }
+
+  // 祝日が日曜日の場合、次の平日（祝日でない日）が振替休日
+  const holidayArray = Array.from(holidays).sort()
   for (const dateStr of holidayArray) {
-    const date = new Date(dateStr)
+    const date = new Date(dateStr + "T00:00:00")
     if (date.getDay() === 0) {
-      // 日曜日
+      // 日曜日の場合、次の平日を探す
       const nextDay = new Date(date)
       nextDay.setDate(nextDay.getDate() + 1)
-      holidays.add(formatDate(nextDay))
+
+      // 次の日が既に祝日なら、さらに次の日を探す
+      let maxIterations = 7
+      while (maxIterations > 0) {
+        const nextDateStr = formatDate(nextDay)
+        if (!holidays.has(nextDateStr)) {
+          holidays.add(nextDateStr)
+          break
+        }
+        nextDay.setDate(nextDay.getDate() + 1)
+        maxIterations--
+      }
     }
   }
 
   return holidays
 }
 
-// 第N週の特定曜日の日付を取得
+function getNthMondayOfMonth(year: number, month: number, n: number): number {
+  // その月の1日
+  const firstDay = new Date(year, month - 1, 1)
+  const firstDayOfWeek = firstDay.getDay() // 0=日, 1=月, ..., 6=土
+
+  // 最初の月曜日は何日か
+  let firstMonday: number
+  if (firstDayOfWeek === 0) {
+    // 1日が日曜日なら、2日が月曜日
+    firstMonday = 2
+  } else if (firstDayOfWeek === 1) {
+    // 1日が月曜日
+    firstMonday = 1
+  } else {
+    // それ以外の場合、次の月曜日を計算
+    firstMonday = 1 + (8 - firstDayOfWeek)
+  }
+
+  // 第N月曜日
+  return firstMonday + (n - 1) * 7
+}
+
+function calculateShunbun(year: number): number {
+  if (year >= 1900 && year <= 2099) {
+    return Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4))
+  }
+  return 21 // デフォルト
+}
+
+function calculateShubun(year: number): number {
+  if (year >= 1900 && year <= 2099) {
+    return Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4))
+  }
+  return 23 // デフォルト
+}
+
+// 第N週の特定曜日の日付を取得（定休日用）
 function getNthDayOfMonth(year: number, month: number, dayOfWeek: number, weekOfMonth: number): string {
   const firstDay = new Date(year, month - 1, 1)
   const firstDayOfWeek = firstDay.getDay()
 
-  const day = 1 + ((dayOfWeek - firstDayOfWeek + 7) % 7) + (weekOfMonth - 1) * 7
+  let day = 1 + ((dayOfWeek - firstDayOfWeek + 7) % 7) + (weekOfMonth - 1) * 7
+
+  // 月の最終日を超えないようにチェック
+  const lastDay = new Date(year, month, 0).getDate()
+  if (day > lastDay) {
+    day = day - 7 // 前の週に戻す
+  }
 
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
 }
@@ -121,13 +192,17 @@ function getNextWeekday(date: Date, holidays: Set<string>, excludeDates: Set<str
   const nextDate = new Date(date)
   nextDate.setDate(nextDate.getDate() + 1)
 
-  while (
-    nextDate.getDay() === 0 || // 日曜日
-    nextDate.getDay() === 6 || // 土曜日
-    holidays.has(formatDate(nextDate)) || // 祝日
-    excludeDates.has(formatDate(nextDate)) // 既に他の店舗が使用
-  ) {
+  let maxIterations = 30 // 無限ループ防止
+  while (maxIterations > 0) {
+    const dateStr = formatDate(nextDate)
+    const dayOfWeek = nextDate.getDay()
+
+    // 土日でなく、祝日でなく、既に使用されていない日を探す
+    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidays.has(dateStr) && !excludeDates.has(dateStr)) {
+      break
+    }
     nextDate.setDate(nextDate.getDate() + 1)
+    maxIterations--
   }
 
   return nextDate
@@ -136,12 +211,16 @@ function getNextWeekday(date: Date, holidays: Set<string>, excludeDates: Set<str
 function getPreviousWeekday(date: Date, holidays: Set<string>): Date {
   const prevDate = new Date(date)
 
-  while (
-    prevDate.getDay() === 0 || // 日曜日
-    prevDate.getDay() === 6 || // 土曜日
-    holidays.has(formatDate(prevDate)) // 祝日
-  ) {
+  let maxIterations = 30
+  while (maxIterations > 0) {
+    const dateStr = formatDate(prevDate)
+    const dayOfWeek = prevDate.getDay()
+
+    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidays.has(dateStr)) {
+      break
+    }
     prevDate.setDate(prevDate.getDate() - 1)
+    maxIterations--
   }
 
   return prevDate
@@ -178,38 +257,40 @@ function generateOrderDayEvents(year: number, month: number): any[] {
 
 function generateStoreHolidayEvents(year: number, month: number): any[] {
   const events: any[] = []
-  const holidays = getJapaneseHolidays(year)
 
-  // 前月と翌月の祝日も取得（月をまたぐ振替に対応）
-  const prevHolidays = getJapaneseHolidays(year - (month === 1 ? 1 : 0))
-  const nextHolidays = getJapaneseHolidays(year + (month === 12 ? 1 : 0))
-  const allHolidays = new Set([...holidays, ...prevHolidays, ...nextHolidays])
+  // 当年の祝日を取得
+  const holidays = getJapaneseHolidays(year)
 
   // 既に割り当てられた日付を追跡
   const assignedDates = new Set<string>()
 
-  // 各店舗の定休日を計算
-  for (const rule of STORE_HOLIDAY_RULES) {
+  // 定休日を順番に処理（第一火曜→第一水曜→第二火曜...の順）
+  const sortedRules = [...STORE_HOLIDAY_RULES].sort((a, b) => {
+    if (a.weekOfMonth !== b.weekOfMonth) return a.weekOfMonth - b.weekOfMonth
+    return a.dayOfWeek - b.dayOfWeek
+  })
+
+  for (const rule of sortedRules) {
     // 本来の定休日を計算
     const originalDateStr = getNthDayOfMonth(year, month, rule.dayOfWeek, rule.weekOfMonth)
-    const originalDate = new Date(originalDateStr)
+    const originalDate = new Date(originalDateStr + "T00:00:00")
 
     // 月の範囲内かチェック
     if (originalDate.getMonth() + 1 !== month) {
-      continue // 第5週などで月をまたぐ場合はスキップ
+      continue
     }
 
     let finalDate: Date
     let finalDateStr: string
 
-    // 祝日かどうかチェック
-    if (allHolidays.has(originalDateStr) || originalDate.getDay() === 0 || originalDate.getDay() === 6) {
-      // 祝日または土日の場合、次の平日に振り替え
-      finalDate = getNextWeekday(originalDate, allHolidays, assignedDates)
-      finalDateStr = formatDate(finalDate)
-    } else if (assignedDates.has(originalDateStr)) {
-      // 既に他の店舗が使用している場合、次の平日に振り替え
-      finalDate = getNextWeekday(originalDate, allHolidays, assignedDates)
+    // 本来の日付が: 祝日、土日、または既に他店舗に割り当て済みかチェック
+    const isHoliday = holidays.has(originalDateStr)
+    const isWeekend = originalDate.getDay() === 0 || originalDate.getDay() === 6
+    const isAlreadyAssigned = assignedDates.has(originalDateStr)
+
+    if (isHoliday || isWeekend || isAlreadyAssigned) {
+      // 次の平日に振り替え
+      finalDate = getNextWeekday(originalDate, holidays, assignedDates)
       finalDateStr = formatDate(finalDate)
     } else {
       finalDate = originalDate
@@ -237,7 +318,7 @@ function generateStoreHolidayEvents(year: number, month: number): any[] {
   return events
 }
 
-const getStoreColorById = (storeId: number): string => {
+function getStoreColorById(storeId: number): string {
   const storeName = STORE_ID_TO_NAME[storeId]
   return storeName ? STORE_COLOR_MAP[storeName] : "#6b7280"
 }
@@ -266,6 +347,26 @@ async function checkColumnExists(connection: mysql.Connection): Promise<boolean>
   }
 }
 
+function generateNewYearsEveEvent(year: number, month: number): any[] {
+  const events: any[] = []
+
+  // 12月のみ大晦日イベントを追加
+  if (month === 12) {
+    events.push({
+      id: `nye-${year}-12-31`,
+      title: "18時まで営業",
+      date: `${year}-12-31`,
+      color: "#ef4444", // 赤色
+      store_id: null,
+      is_global: true,
+      store_name: null,
+      is_generated_holiday: false,
+    })
+  }
+
+  return events
+}
+
 // イベント取得
 export async function GET(request: Request) {
   let connection
@@ -280,6 +381,8 @@ export async function GET(request: Request) {
     const session = await getSessionStore()
     const storeId = session?.store_id
 
+    console.log("[v0] GET Calendar - Session storeId:", storeId)
+
     connection = await getConnection()
 
     const hasStoreIdColumn = await checkColumnExists(connection)
@@ -290,7 +393,7 @@ export async function GET(request: Request) {
         `SELECT id, title, DATE_FORMAT(date, '%Y-%m-%d') as date, color, store_id, is_global 
          FROM calendar_events 
          WHERE date BETWEEN ? AND ? 
-         AND (is_global = TRUE OR store_id = ?)
+         AND (is_global = TRUE OR is_global = 1 OR store_id = ?)
          AND title NOT LIKE '%定休日%'
          AND title NOT LIKE '%発注日%'
          ORDER BY date ASC`,
@@ -311,11 +414,22 @@ export async function GET(request: Request) {
     const dbEvents = (rows as any[]).map((row) => {
       const eventStoreId = row.store_id || null
       const storeName = eventStoreId ? STORE_ID_TO_NAME[eventStoreId] || null : null
+      // is_global が 0 または false の場合は false、それ以外は true
+      const isGlobal = row.is_global === 1 || row.is_global === true
+
+      console.log("[v0] DB Event:", {
+        id: row.id,
+        title: row.title,
+        store_id: row.store_id,
+        raw_is_global: row.is_global,
+        converted_is_global: isGlobal,
+        currentStoreId: storeId,
+      })
 
       return {
         ...row,
         store_id: eventStoreId,
-        is_global: row.is_global !== undefined ? row.is_global : true,
+        is_global: isGlobal,
         store_name: storeName,
         is_generated_holiday: false,
       }
@@ -323,9 +437,10 @@ export async function GET(request: Request) {
 
     const holidayEvents = generateStoreHolidayEvents(year, month)
     const orderDayEvents = generateOrderDayEvents(year, month)
+    const newYearsEveEvents = generateNewYearsEveEvent(year, month)
 
     // DBイベントと自動生成イベントを結合
-    const allEvents = [...dbEvents, ...holidayEvents, ...orderDayEvents]
+    const allEvents = [...dbEvents, ...holidayEvents, ...orderDayEvents, ...newYearsEveEvents]
 
     // 日付順でソート
     allEvents.sort((a, b) => a.date.localeCompare(b.date))
@@ -363,13 +478,11 @@ export async function POST(request: Request) {
     const hasStoreIdColumn = await checkColumnExists(connection)
 
     if (hasStoreIdColumn) {
-      // 新しいスキーマ
       await connection.execute(
         "INSERT INTO calendar_events (title, date, color, store_id, is_global) VALUES (?, ?, ?, ?, FALSE)",
         [title, date, storeColor, storeId],
       )
     } else {
-      // 旧スキーマ
       await connection.execute("INSERT INTO calendar_events (title, date, color) VALUES (?, ?, ?)", [
         title,
         date,
@@ -381,6 +494,53 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Calendar add error:", error)
     return NextResponse.json({ error: "Failed to add event" }, { status: 500 })
+  } finally {
+    if (connection) await connection.end()
+  }
+}
+
+// イベント削除
+export async function DELETE(request: Request) {
+  let connection
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get("id")
+
+    if (!id) {
+      return NextResponse.json({ error: "Event ID is required" }, { status: 400 })
+    }
+
+    // 自動生成されたイベント（定休日、発注日）は削除不可
+    if (id.startsWith("holiday-") || id.startsWith("order-") || id.startsWith("nye-")) {
+      return NextResponse.json({ error: "Cannot delete generated events" }, { status: 400 })
+    }
+
+    const session = await getSessionStore()
+    if (!session) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    }
+
+    connection = await getConnection()
+
+    const hasStoreIdColumn = await checkColumnExists(connection)
+
+    if (hasStoreIdColumn) {
+      const [result] = await connection.execute(
+        "DELETE FROM calendar_events WHERE id = ? AND (store_id = ? OR is_global = FALSE)",
+        [id, session.store_id],
+      )
+
+      if ((result as any).affectedRows === 0) {
+        return NextResponse.json({ error: "Event not found or cannot be deleted" }, { status: 404 })
+      }
+    } else {
+      await connection.execute("DELETE FROM calendar_events WHERE id = ?", [id])
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Calendar delete error:", error)
+    return NextResponse.json({ error: "Failed to delete event" }, { status: 500 })
   } finally {
     if (connection) await connection.end()
   }
