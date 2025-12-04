@@ -126,6 +126,27 @@ export default function CampaignPage() {
     },
   }
 
+  const campaignSales = {
+    新前橋店: {
+      total: 409335 + 336900 + 1204665 + 304300,
+      totalSub: 409335 + 1204665,
+      totalOne: 336900 + 304300,
+      months: [
+        { month: "4月度", sub: 409335, one: 336900 },
+        { month: "5月度", sub: 1204665, one: 304300 },
+      ],
+    },
+    太田新田店: {
+      total: 316189 + 728300 + 914153 + 682450,
+      totalSub: 316189 + 914153,
+      totalOne: 728300 + 682450,
+      months: [
+        { month: "10月度", sub: 316189, one: 728300 },
+        { month: "11月度", sub: 914153, one: 682450 },
+      ],
+    },
+  }
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -182,6 +203,7 @@ export default function CampaignPage() {
       weeklyPos: data.ashikaga.weeklyPos || {},
       campaignDays: campaignInfo.足利緑町店.days,
       promotions: campaignInfo.足利緑町店.promotions,
+      sales: null,
     },
     {
       name: "新前橋店",
@@ -193,6 +215,7 @@ export default function CampaignPage() {
       weeklyPos: data.shinmaebashi.weeklyPos || {},
       campaignDays: campaignInfo.新前橋店.days,
       promotions: campaignInfo.新前橋店.promotions,
+      sales: campaignSales.新前橋店,
     },
     {
       name: "太田新田店",
@@ -204,6 +227,7 @@ export default function CampaignPage() {
       weeklyPos: data.otaShinta.weeklyPos || {},
       campaignDays: campaignInfo.太田新田店.days,
       promotions: campaignInfo.太田新田店.promotions,
+      sales: campaignSales.太田新田店,
     },
   ]
 
@@ -338,6 +362,44 @@ export default function CampaignPage() {
                         </p>
                       </div>
                     </div>
+
+                    {store.sales && (
+                      <div className="bg-cyan-50 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-medium text-gray-500">総売上</p>
+                          <p className="text-xl font-bold text-cyan-600">¥{store.sales.total.toLocaleString()}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+                          <div className="bg-white rounded-lg px-2 py-1.5 flex justify-between">
+                            <span className="text-gray-500">サブスク計:</span>
+                            <span className="font-medium text-cyan-600">¥{store.sales.totalSub.toLocaleString()}</span>
+                          </div>
+                          <div className="bg-white rounded-lg px-2 py-1.5 flex justify-between">
+                            <span className="text-gray-500">ワンタイム計:</span>
+                            <span className="font-medium text-orange-600">
+                              ¥{store.sales.totalOne.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {store.sales.months.map((monthData, idx) => (
+                            <div key={idx} className="bg-white rounded-lg p-2">
+                              <p className="text-xs font-medium text-gray-700 mb-1">{monthData.month}</p>
+                              <div className="text-xs space-y-0.5">
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">サブスク:</span>
+                                  <span className="font-medium text-cyan-600">¥{monthData.sub.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">ワンタイム:</span>
+                                  <span className="font-medium text-orange-600">¥{monthData.one.toLocaleString()}</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="pt-4 border-t border-gray-100">
                       <p className="text-xs font-medium text-gray-500 mb-3">アイテム内訳</p>

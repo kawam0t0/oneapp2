@@ -16,13 +16,11 @@ const getConnection = async () => {
 
 const parseDateToString = (dateValue: any): string => {
   if (dateValue instanceof Date) {
-    // MySQLのDateオブジェクトからローカル日付として取得
     const year = dateValue.getFullYear()
     const month = String(dateValue.getMonth() + 1).padStart(2, "0")
     const day = String(dateValue.getDate()).padStart(2, "0")
     return `${year}-${month}-${day}`
   }
-  // 文字列の場合はそのまま返す
   return String(dateValue).split("T")[0]
 }
 
@@ -59,10 +57,6 @@ const getWeeklyData = async (
 
   const [rows] = await connection.execute(query, params)
 
-  const totalFromQuery = (rows as any[]).reduce((sum, row) => sum + Number(row.count), 0)
-  console.log(`[v0] getWeeklyData - store: ${store}, period: ${startDate} to ${endDate}`)
-  console.log(`[v0] getWeeklyData - total count from query: ${totalFromQuery}`)
-
   const startParts = startDate.split("-")
   const startYear = Number.parseInt(startParts[0])
   const startMonth = Number.parseInt(startParts[1]) - 1
@@ -81,23 +75,16 @@ const getWeeklyData = async (
     const diffDays = Math.floor((rowDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24))
     const weekNum = diffDays < 0 ? 1 : Math.floor(diffDays / 7) + 1
 
-    console.log(`[v0] row date: ${rowDateStr}, diffDays: ${diffDays}, weekNum: ${weekNum}`)
-
     if (!weeklyData[weekNum]) {
       weeklyData[weekNum] = 0
     }
     weeklyData[weekNum] += Number(row.count)
   })
 
-  const weeklyTotal = Object.values(weeklyData).reduce((sum, count) => sum + count, 0)
-  console.log(`[v0] getWeeklyData - weekly data:`, weeklyData)
-  console.log(`[v0] getWeeklyData - weekly total: ${weeklyTotal}`)
-
   return weeklyData
 }
 
 const getOtaShintaWeeklyData = async (connection: mysql.Connection, startDate: string, endDate: string) => {
-  // サブスク: source = '請求書' かつ details に「期間限定」を含む
   const [subscRows] = await connection.execute(
     `
       SELECT Date, COUNT(*) as count 
@@ -111,7 +98,6 @@ const getOtaShintaWeeklyData = async (connection: mysql.Connection, startDate: s
     [startDate, endDate],
   )
 
-  // 払い戻し: payment_or_refund = '払い戻し' かつ details に「プラン」を含む
   const [refundRows] = await connection.execute(
     `
       SELECT Date, COUNT(*) as count 
@@ -175,10 +161,6 @@ const getOtaShintaWeeklyData = async (connection: mysql.Connection, startDate: s
     result[week] = subsc - refund
   })
 
-  console.log(`[v0] getOtaShintaWeeklyData - weeklySubsc:`, weeklySubsc)
-  console.log(`[v0] getOtaShintaWeeklyData - weeklyRefund:`, weeklyRefund)
-  console.log(`[v0] getOtaShintaWeeklyData - result (after subtraction):`, result)
-
   return result
 }
 
@@ -233,7 +215,6 @@ export async function GET() {
     `)
 
     // 太田新田店: キャンペーン期間 2025/10/09〜2025/11/30
-    // otanitta_campaignテーブルを使用、source = 'POSレジ'
     const [otaShintaPosRows] = await connection.execute(`
       SELECT details, COUNT(*) as count 
       FROM otanitta_campaign 
@@ -245,7 +226,6 @@ export async function GET() {
     `)
 
     // 太田新田店: サブスク継続
-    // otanitta_campaignテーブルを使用、source = '請求書' かつ details に「期間限定」を含む
     const [otaShintaSubscRows] = await connection.execute(`
       SELECT details, COUNT(*) as count 
       FROM otanitta_campaign
@@ -257,7 +237,6 @@ export async function GET() {
       ORDER BY count DESC
     `)
 
-    // payment_or_refund = '払い戻し' かつ details に「プラン」を含む
     const [otaShintaRefundRows] = await connection.execute(`
       SELECT details, COUNT(*) as count 
       FROM otanitta_campaign
@@ -290,7 +269,6 @@ export async function GET() {
 
     const otaShintaWeekly = await getOtaShintaWeeklyData(connection, "2025-10-09", "2025-11-30")
 
-    // 足利緑町店: 2024/04/26〜2024/05/31, source = POSレジ
     const ashikagaWeeklyPos = await getWeeklyData(
       connection,
       "transactions",
@@ -300,7 +278,6 @@ export async function GET() {
       "source = 'POSレジ'",
     )
 
-    // 新前橋店: 2025/04/18〜2025/05/31, source = POSレジ
     const shinmaebashiWeeklyPos = await getWeeklyData(
       connection,
       "transactions",
@@ -310,7 +287,6 @@ export async function GET() {
       "source = 'POSレジ'",
     )
 
-    // 太田新田店: 2025/10/09〜2025/11/30, source = POSレジ (otanitta_campaignテーブル)
     const otaShintaWeeklyPos = await getWeeklyData(
       connection,
       "otanitta_campaign",
