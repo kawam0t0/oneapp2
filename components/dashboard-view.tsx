@@ -315,7 +315,7 @@ export default function DashboardView() {
                             {formatCurrency(sales.monthlyOnetime + sales.monthlySubsc)}
                           </p>
                           <div className="flex gap-2 mt-1">
-                            <p className="text-[10px] text-blue-500">WT: {formatCurrency(sales.monthlyOnetime)}</p>
+                            <p className="text-[10px] text-blue-500">OT: {formatCurrency(sales.monthlyOnetime)}</p>
                             <p className="text-[10px] text-blue-500">SC: {formatCurrency(sales.monthlySubsc)}</p>
                           </div>
                         </div>
@@ -334,7 +334,7 @@ export default function DashboardView() {
                             {formatCurrency(sales.todayOnetime + sales.todaySubsc)}
                           </p>
                           <div className="flex gap-2 mt-1">
-                            <p className="text-[10px] text-green-500">WT: {formatCurrency(sales.todayOnetime)}</p>
+                            <p className="text-[10px] text-green-500">OT: {formatCurrency(sales.todayOnetime)}</p>
                             <p className="text-[10px] text-green-500">SC: {formatCurrency(sales.todaySubsc)}</p>
                           </div>
                         </div>
