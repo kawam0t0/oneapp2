@@ -1,185 +1,126 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { ChevronLeft, ChevronRight, X, Trash2 } from "lucide-react"
 import { AppLayout } from "@/components/app-layout"
-import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react"
-import { getJapaneseHolidays, type Holiday } from "@/lib/japanese-holidays"
 
 interface CalendarEvent {
-  id: number
+  id?: number
   title: string
   date: string
   color: string
-  isHoliday?: boolean
   isClosed?: boolean
   isStoreClosed?: boolean
   isNotice?: boolean
   isOrder?: boolean
+  is_global?: boolean
+  store_id?: number
+  store_name?: string // 店舗名を追加
 }
 
-const COLORS = [
-  { name: "赤", value: "#ef4444" },
-  { name: "青", value: "#3b82f6" },
-  { name: "緑", value: "#22c55e" },
-  { name: "黄", value: "#eab308" },
-  { name: "紫", value: "#a855f7" },
-  { name: "ピンク", value: "#ec4899" },
-  { name: "オレンジ", value: "#f97316" },
-]
+const STORE_COLOR_MAP: { [key: string]: string } = {
+  前橋50号: "#3b82f6",
+  伊勢崎韮塚: "#22c55e",
+  高崎棟高: "#f97316",
+  足利緑町: "#ef4444",
+  新前橋: "#a855f7",
+  太田新田: "#06b6d4",
+}
 
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState<Date | null>(null)
-  const [events, setEvents] = useState<CalendarEvent[]>([])
-  const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const [newEventTitle, setNewEventTitle] = useState("")
-  const [newEventColor, setNewEventColor] = useState(COLORS[0].value)
+  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [dbEvents, setDbEvents] = useState<CalendarEvent[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [isClient, setIsClient] = useState(false)
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
-  const [selectedDateForDetail, setSelectedDateForDetail] = useState<string | null>(null)
-  const [selectedDateEvents, setSelectedDateEvents] = useState<CalendarEvent[]>([])
+  const [currentStoreName, setCurrentStoreName] = useState<string>("")
 
-  useEffect(() => {
-    setCurrentDate(new Date())
-    setIsClient(true)
+  const getHolidayEvents = useCallback((date: Date): CalendarEvent[] => {
+    const year = date.getFullYear()
+    const holidays: CalendarEvent[] = [
+      { title: "元日", date: `${year}-01-01`, color: "#ef4444", isClosed: true, is_global: true },
+      { title: "成人の日", date: `${year}-01-13`, color: "#f97316", isNotice: true, is_global: true },
+      { title: "建国記念の日", date: `${year}-02-11`, color: "#f97316", isNotice: true, is_global: true },
+      { title: "天皇誕生日", date: `${year}-02-23`, color: "#f97316", isNotice: true, is_global: true },
+      { title: "春分の日", date: `${year}-03-20`, color: "#f97316", isNotice: true, is_global: true },
+      { title: "昭和の日", date: `${year}-04-29`, color: "#f97316", isNotice: true, is_global: true },
+      { title: "憲法記念日", date: `${year}-05-03`, color: "#f97316", isNotice: true, is_global: true },
+      { title: "みどりの日", date: `${year}-05-04`, color: "#f97316", isNotice: true, is_global: true },
+      { title: "こどもの日", date: `${year}-05-05`, color: "#f97316", isNotice: true, is_global: true },
+      { title: "海の日", date: `${year}-07-21`, color: "#f97316", isNotice: true, is_global: true },
+      { title: "山の日", date: `${year}-08-11`, color: "#f97316", isNotice: true, is_global: true },
+      { title: "敬老の日", date: `${year}-09-15`, color: "#f97316", isNotice: true, is_global: true },
+      { title: "秋分の日", date: `${year}-09-23`, color: "#f97316", isNotice: true, is_global: true },
+      { title: "スポーツの日", date: `${year}-10-14`, color: "#f97316", isNotice: true, is_global: true },
+      { title: "文化の日", date: `${year}-11-03`, color: "#f97316", isNotice: true, is_global: true },
+      { title: "勤労感謝の日", date: `${year}-11-23`, color: "#f97316", isNotice: true, is_global: true },
+      { title: "大晦日", date: `${year}-12-31`, color: "#ef4444", isClosed: true, is_global: true },
+    ]
+
+    const firstDay = new Date(date.getFullYear(), date.getMonth(), 1)
+    const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+
+
+
+    return holidays
   }, [])
 
-  const getHolidayEvents = (date: Date): CalendarEvent[] => {
-    const year = date.getFullYear()
-    const holidays: Holiday[] = getJapaneseHolidays(year)
-
-    const prevYearHolidays: Holiday[] = year > 2024 ? getJapaneseHolidays(year - 1) : []
-    const nextYearHolidays: Holiday[] = year < 2030 ? getJapaneseHolidays(year + 1) : []
-
-    const allHolidays: Holiday[] = [...prevYearHolidays, ...holidays, ...nextYearHolidays]
-
-    return allHolidays.map((h: Holiday, index: number) => {
-      const isHoliday = h.type === "holiday"
-      const isClosed = h.type === "closed"
-      const isStoreClosed = h.type === "store-closed"
-      const isNotice = h.type === "notice"
-      const isOrder = h.type === "order"
-
-      let eventColor = "#ef4444"
-      if (h.color) {
-        eventColor = h.color
-      } else if (isClosed || isStoreClosed) {
-        eventColor = "#6b7280"
-      } else if (isNotice) {
-        eventColor = "#3b82f6"
-      } else if (isOrder) {
-        eventColor = "#22c55e"
-      }
-
-      return {
-        id: -index - 1,
-        title: h.name,
-        date: h.date,
-        color: eventColor,
-        isHoliday,
-        isClosed,
-        isStoreClosed,
-        isNotice,
-        isOrder,
-      }
-    })
-  }
-
-  const fetchEvents = async (date: Date) => {
+  const fetchEvents = useCallback(async (date: Date) => {
     try {
       const year = date.getFullYear()
       const month = date.getMonth() + 1
-      const url = `/api/calendar?year=${year}&month=${month}`
-
-      const res = await fetch(url)
-
-      const holidayEvents = getHolidayEvents(date)
-
+      const res = await fetch(`/api/calendar?year=${year}&month=${month}`)
       if (res.ok) {
         const data = await res.json()
-
-        if (Array.isArray(data)) {
-          const allEvents = [...holidayEvents, ...data]
-          setEvents(allEvents)
-        } else {
-          setEvents(holidayEvents)
-        }
-      } else {
-        setEvents(holidayEvents)
+        setDbEvents(data)
       }
     } catch (error) {
       console.error("Failed to fetch events:", error)
-      if (date) {
-        setEvents(getHolidayEvents(date))
-      }
     }
-  }
+  }, [])
 
-  useEffect(() => {
+  const handlePrevMonth = useCallback(() => {
     if (currentDate) {
-      fetchEvents(currentDate)
+      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
     }
   }, [currentDate])
 
-  const changeMonth = (delta: number) => {
-    if (!currentDate) return
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + delta, 1))
-  }
-
-  const goToToday = () => {
-    setCurrentDate(new Date())
-  }
-
-  const generateCalendarDays = (date: Date) => {
-    const year = date.getFullYear()
-    const month = date.getMonth()
-    const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
-    const startDay = firstDay.getDay()
-    const daysInMonth = lastDay.getDate()
-
-    const days: { date: Date; isCurrentMonth: boolean }[] = []
-
-    const prevMonthLastDay = new Date(year, month, 0).getDate()
-    for (let i = startDay - 1; i >= 0; i--) {
-      days.push({
-        date: new Date(year, month - 1, prevMonthLastDay - i),
-        isCurrentMonth: false,
-      })
+  const handleNextMonth = useCallback(() => {
+    if (currentDate) {
+      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
     }
+  }, [currentDate])
 
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push({
-        date: new Date(year, month, i),
-        isCurrentMonth: true,
-      })
-    }
-
-    const remainingDays = 42 - days.length
-    for (let i = 1; i <= remainingDays; i++) {
-      days.push({
-        date: new Date(year, month + 1, i),
-        isCurrentMonth: false,
-      })
-    }
-
-    return days
-  }
-
-  const formatDateKey = (date: Date) => {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
-  }
-
-  const openAddModal = (date: Date) => {
-    setSelectedDate(formatDateKey(date))
-    setNewEventTitle("")
-    setNewEventColor(COLORS[0].value)
+  const handleDateClick = useCallback((date: Date) => {
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+    setSelectedDate(dateStr)
     setIsModalOpen(true)
-  }
+  }, [])
 
-  const addEvent = async () => {
+  const handleDeleteEvent = useCallback(
+    async (eventId: number) => {
+      if (!confirm("このイベントを削除しますか？")) return
+
+      try {
+        const res = await fetch(`/api/calendar/${eventId}`, {
+          method: "DELETE",
+        })
+
+        if (res.ok) {
+          if (currentDate) {
+            await fetchEvents(currentDate)
+          }
+        }
+      } catch (error) {
+        console.error("Failed to delete event:", error)
+      }
+    },
+    [currentDate, fetchEvents],
+  )
+
+  const addEvent = useCallback(async () => {
     if (!newEventTitle.trim() || !selectedDate) {
       return
     }
@@ -193,7 +134,6 @@ export default function CalendarPage() {
         body: JSON.stringify({
           title: newEventTitle.trim(),
           date: selectedDate,
-          color: newEventColor,
         }),
       })
 
@@ -203,177 +143,164 @@ export default function CalendarPage() {
 
         if (currentDate) {
           await fetchEvents(currentDate)
-
-          const holidayEvents = getHolidayEvents(currentDate)
-          const year = currentDate.getFullYear()
-          const month = currentDate.getMonth() + 1
-          const fetchRes = await fetch(`/api/calendar?year=${year}&month=${month}`)
-          if (fetchRes.ok) {
-            const data = await fetchRes.json()
-            if (Array.isArray(data)) {
-              const allEvents = [...holidayEvents, ...data]
-              const updatedDayEvents = allEvents.filter((e) => e.date === selectedDate)
-              setSelectedDateForDetail(selectedDate)
-              setSelectedDateEvents(updatedDayEvents)
-              setIsDetailModalOpen(true)
-            }
-          }
         }
-      } else {
-        const errorData = await res.json()
-        alert(`イベントの追加に失敗しました: ${errorData.error || "不明なエラー"}`)
       }
     } catch (error) {
       console.error("Failed to add event:", error)
-      alert("イベントの追加に失敗しました。ネットワーク接続を確認してください。")
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [newEventTitle, selectedDate, currentDate, fetchEvents])
 
-  const deleteEvent = async (event: CalendarEvent, e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (event.isHoliday || event.isClosed || event.isStoreClosed || event.isNotice || event.isOrder) return
-    if (!confirm("このイベントを削除しますか？")) return
-
-    try {
-      const res = await fetch(`/api/calendar/${event.id}`, { method: "DELETE" })
-      if (res.ok && currentDate) {
-        fetchEvents(currentDate)
-      }
-    } catch (error) {
-      console.error("Failed to delete event:", error)
-    }
-  }
-
-  const openDetailModal = (date: Date, dayEvents: CalendarEvent[]) => {
-    const dateKey = formatDateKey(date)
-    setSelectedDateForDetail(dateKey)
-    setSelectedDateEvents(dayEvents)
-    setIsDetailModalOpen(true)
-  }
-
-  const openAddModalFromDetail = () => {
-    setIsDetailModalOpen(false)
-    if (selectedDateForDetail) {
-      setSelectedDate(selectedDateForDetail)
-      setNewEventTitle("")
-      setNewEventColor(COLORS[0].value)
-      setIsModalOpen(true)
-    }
-  }
-
-  const deleteEventFromDetail = async (event: CalendarEvent) => {
-    if (event.isHoliday || event.isClosed || event.isStoreClosed || event.isNotice || event.isOrder) return
-    if (!confirm("このイベントを削除しますか？")) return
-
-    try {
-      const res = await fetch(`/api/calendar/${event.id}`, { method: "DELETE" })
-      if (res.ok && currentDate) {
-        fetchEvents(currentDate)
-        setSelectedDateEvents((prev) => prev.filter((e) => e.id !== event.id))
-      }
-    } catch (error) {
-      console.error("Failed to delete event:", error)
-    }
-  }
-
-  const formatDateDisplay = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const weekDayNames = ["日", "月", "火", "水", "木", "金", "土"]
-    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日（${weekDayNames[date.getDay()]}）`
-  }
-
-  const getEventStyle = (event: CalendarEvent) => {
-    if (event.isHoliday) {
-      return {
-        className: "text-red-700",
-        style: { backgroundColor: "#fee2e2" },
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const res = await fetch("/api/auth/session")
+        if (res.ok) {
+          const data = await res.json()
+          setCurrentStoreName(data.store_name || "")
+        }
+      } catch (error) {
+        console.error("Failed to fetch session:", error)
       }
     }
-    if (event.isClosed || event.isStoreClosed) {
-      return {
-        className: "text-gray-700",
-        style: { backgroundColor: "#e5e7eb" },
-      }
-    }
-    if (event.isNotice) {
-      return {
-        className: "text-blue-700",
-        style: { backgroundColor: "#dbeafe" },
-      }
-    }
-    if (event.isOrder) {
-      return {
-        className: "text-green-700",
-        style: { backgroundColor: "#dcfce7" },
-      }
-    }
-    return {
-      className: "text-white",
-      style: { backgroundColor: event.color },
-    }
-  }
+    fetchSession()
+  }, [])
 
+  useEffect(() => {
+    setCurrentDate(new Date())
+  }, [])
+
+  useEffect(() => {
+    if (currentDate) {
+      fetchEvents(currentDate)
+    }
+  }, [currentDate, fetchEvents])
+
+  useEffect(() => {
+    if (currentDate) {
+      const holidayEvents = getHolidayEvents(currentDate)
+      setEvents([...holidayEvents, ...dbEvents])
+    }
+  }, [currentDate, dbEvents, getHolidayEvents])
+
+  const calendarData = useMemo(() => {
+    if (!currentDate) return null
+
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth()
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const firstDayOfMonth = new Date(year, month, 1)
+    const lastDayOfMonth = new Date(year, month + 1, 0)
+    const startDayOfWeek = firstDayOfMonth.getDay()
+    const daysInMonth = lastDayOfMonth.getDate()
+
+    const prevMonthLastDay = new Date(year, month, 0).getDate()
+    const nextMonthDays = 42 - (startDayOfWeek + daysInMonth)
+
+    const calendarDays = []
+
+    for (let i = startDayOfWeek - 1; i >= 0; i--) {
+      calendarDays.push({
+        day: prevMonthLastDay - i,
+        isCurrentMonth: false,
+        date: new Date(year, month - 1, prevMonthLastDay - i),
+      })
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      calendarDays.push({
+        day,
+        isCurrentMonth: true,
+        date: new Date(year, month, day),
+      })
+    }
+
+    for (let day = 1; day <= nextMonthDays; day++) {
+      calendarDays.push({
+        day,
+        isCurrentMonth: false,
+        date: new Date(year, month + 1, day),
+      })
+    }
+
+    return { year, month, today, calendarDays }
+  }, [currentDate])
+
+  const getEventsForDate = useCallback(
+    (date: Date) => {
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+      return events.filter((event) => event.date === dateStr)
+    },
+    [events],
+  )
+
+  const currentStoreColor = STORE_COLOR_MAP[currentStoreName] || "#3b82f6"
   const weekDays = ["日", "月", "火", "水", "木", "金", "土"]
 
-  if (!isClient || !currentDate) {
+  const isOtherStoreClosedDay = (event: CalendarEvent) => {
+    return event.title.includes("定休日") && event.store_name && event.store_name !== currentStoreName
+  }
+
+  const getEventDisplayTitle = (event: CalendarEvent) => {
+    if (event.title.includes("定休日") && event.store_name) {
+      return `${event.store_name}定休日`
+    }
+    return event.title
+  }
+
+  if (!currentDate || !calendarData) {
     return (
       <AppLayout>
-        <div className="min-h-screen bg-blue-50 p-4 md:p-6 flex items-center justify-center">
-          <div className="text-blue-700">読み込み中...</div>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-gray-500">読み込み中...</div>
         </div>
       </AppLayout>
     )
   }
 
-  const days = generateCalendarDays(currentDate)
-  const today = new Date()
-  const todayKey = formatDateKey(today)
-
-  const holidayDates = new Set(events.filter((e) => e.isHoliday).map((e) => e.date))
-  const closedDates = new Set(events.filter((e) => e.isClosed).map((e) => e.date))
-  const storeClosedDates = new Set(events.filter((e) => e.isStoreClosed).map((e) => e.date))
-  const noticeDates = new Set(events.filter((e) => e.isNotice).map((e) => e.date))
-  const orderDates = new Set(events.filter((e) => e.isOrder).map((e) => e.date))
+  const { year, month, today, calendarDays } = calendarData
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-blue-50 p-4 md:p-6">
-        {/* ヘッダー - 青色ベースに変更 */}
-        <div className="bg-white rounded-lg shadow-sm border-2 border-blue-400 p-4 mb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={goToToday}
-                className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                今日
-              </button>
-              <div className="flex items-center gap-2">
-                <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-blue-100 rounded-lg transition-colors">
-                  <ChevronLeft className="h-5 w-5 text-blue-700" />
-                </button>
-                <button onClick={() => changeMonth(1)} className="p-2 hover:bg-blue-100 rounded-lg transition-colors">
-                  <ChevronRight className="h-5 w-5 text-blue-700" />
-                </button>
-              </div>
-              <h1 className="text-xl font-bold text-gray-900">
-                {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月
-              </h1>
-            </div>
+      <div className="p-4 md:p-6 bg-gradient-to-br from-blue-50 to-blue-100 min-h-screen">
+        {/* ヘッダー */}
+        <div className="bg-white rounded-2xl shadow-lg border-2 border-blue-200 p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <button onClick={handlePrevMonth} className="p-2 hover:bg-blue-100 rounded-lg transition-colors">
+              <ChevronLeft className="w-6 h-6 text-blue-600" />
+            </button>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900">
+              {year}年 {month + 1}月
+            </h2>
+            <button onClick={handleNextMonth} className="p-2 hover:bg-blue-100 rounded-lg transition-colors">
+              <ChevronRight className="w-6 h-6 text-blue-600" />
+            </button>
           </div>
+          {currentStoreName && (
+            <div className="mt-2 text-center">
+              <span
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium text-white"
+                style={{ backgroundColor: currentStoreColor }}
+              >
+                <span className="w-2 h-2 bg-white rounded-full"></span>
+                {currentStoreName}のカレンダー
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* カレンダー - 青色ベースに変更 */}
-        <div className="bg-white rounded-lg shadow-sm border-2 border-blue-400 overflow-hidden">
-          {/* 曜日ヘッダー - 青色背景 */}
-          <div className="grid grid-cols-7 bg-blue-600">
+        {/* カレンダーグリッド */}
+        <div className="bg-white rounded-2xl shadow-lg border-2 border-blue-200 overflow-hidden">
+          {/* 曜日ヘッダー */}
+          <div className="grid grid-cols-7 bg-blue-600 text-white">
             {weekDays.map((day, index) => (
               <div
                 key={day}
-                className={`py-3 text-center text-sm font-bold ${
-                  index === 0 ? "text-red-300" : index === 6 ? "text-blue-200" : "text-white"
+                className={`py-3 text-center font-bold text-sm ${
+                  index === 0 ? "text-red-200" : index === 6 ? "text-blue-200" : ""
                 }`}
               >
                 {day}
@@ -383,88 +310,53 @@ export default function CalendarPage() {
 
           {/* 日付グリッド */}
           <div className="grid grid-cols-7">
-            {days.map((day, index) => {
-              const dateKey = formatDateKey(day.date)
-              const dayEvents = events.filter((e) => e.date === dateKey)
-              const isToday = dateKey === todayKey
-              const dayOfWeek = day.date.getDay()
-              const isHoliday = holidayDates.has(dateKey)
-              const isClosed = closedDates.has(dateKey)
-              const isStoreClosed = storeClosedDates.has(dateKey)
-              const isNotice = noticeDates.has(dateKey)
-              const isOrder = orderDates.has(dateKey)
+            {calendarDays.map((dayInfo, index) => {
+              const dayEvents = getEventsForDate(dayInfo.date)
+              const isToday =
+                dayInfo.isCurrentMonth &&
+                dayInfo.date.getDate() === today.getDate() &&
+                dayInfo.date.getMonth() === today.getMonth() &&
+                dayInfo.date.getFullYear() === today.getFullYear()
+              const dayOfWeek = dayInfo.date.getDay()
+              const isClosed = dayEvents.some((e) => e.isClosed || e.isStoreClosed)
 
               return (
                 <div
                   key={index}
-                  onClick={() => openDetailModal(day.date, dayEvents)}
-                  className={`min-h-[80px] md:min-h-[120px] border-b border-r border-blue-200 p-1 cursor-pointer ${
-                    !day.isCurrentMonth ? "bg-blue-50/50" : "bg-white"
-                  } hover:bg-blue-50 transition-colors`}
+                  onClick={() => dayInfo.isCurrentMonth && handleDateClick(dayInfo.date)}
+                  className={`min-h-[100px] md:min-h-[120px] p-1 border-b border-r border-gray-100 cursor-pointer transition-colors ${
+                    !dayInfo.isCurrentMonth ? "bg-gray-50 text-gray-400" : isClosed ? "bg-gray-100" : "hover:bg-blue-50"
+                  }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex flex-col h-full">
                     <span
-                      className={`text-sm w-7 h-7 flex items-center justify-center rounded-full ${
+                      className={`inline-flex items-center justify-center w-7 h-7 text-sm font-medium rounded-full mb-1 ${
                         isToday
-                          ? "bg-blue-600 text-white font-bold shadow-md"
-                          : !day.isCurrentMonth
-                            ? "text-gray-400"
-                            : isHoliday || dayOfWeek === 0
-                              ? "text-red-500 font-semibold"
-                              : dayOfWeek === 6
-                                ? "text-blue-500 font-semibold"
-                                : isClosed || isStoreClosed || isNotice || isOrder
-                                  ? "text-gray-600"
-                                  : "text-gray-700"
+                          ? "bg-blue-600 text-white"
+                          : dayOfWeek === 0
+                            ? "text-red-500"
+                            : dayOfWeek === 6
+                              ? "text-blue-500"
+                              : "text-gray-700"
                       }`}
                     >
-                      {day.date.getDate()}
+                      {dayInfo.day}
                     </span>
-                    {dayEvents.length > 0 && (
-                      <span className="md:hidden text-xs bg-blue-600 text-white rounded-full px-1.5 py-0.5 font-medium">
-                        {dayEvents.length}
-                      </span>
-                    )}
-                    {day.isCurrentMonth && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          openAddModal(day.date)
-                        }}
-                        className="hidden md:block p-1 hover:bg-blue-200 rounded opacity-0 hover:opacity-100 transition-all"
-                      >
-                        <Plus className="h-4 w-4 text-blue-600" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="hidden md:block space-y-1">
-                    {dayEvents.slice(0, 3).map((event) => {
-                      const eventStyle = getEventStyle(event)
-                      return (
+                    <div className="flex-1 space-y-1 overflow-hidden">
+                      {dayEvents.slice(0, 3).map((event, eventIndex) => (
                         <div
-                          key={event.id}
-                          className={`group flex items-center gap-1 px-1.5 py-0.5 rounded text-xs truncate ${eventStyle.className}`}
-                          style={eventStyle.style}
+                          key={eventIndex}
+                          className="text-xs px-1 py-0.5 rounded truncate text-white font-medium"
+                          style={{ backgroundColor: event.color }}
+                          title={getEventDisplayTitle(event)}
                         >
-                          <span className="truncate flex-1">{event.title}</span>
-                          {!event.isHoliday &&
-                            !event.isClosed &&
-                            !event.isStoreClosed &&
-                            !event.isNotice &&
-                            !event.isOrder && (
-                              <button
-                                onClick={(e) => deleteEvent(event, e)}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            )}
+                          {getEventDisplayTitle(event)}
                         </div>
-                      )
-                    })}
-                    {dayEvents.length > 3 && (
-                      <div className="text-xs text-blue-700 px-1 font-medium">+{dayEvents.length - 3}件</div>
-                    )}
+                      ))}
+                      {dayEvents.length > 3 && (
+                        <div className="text-xs text-gray-500 px-1">+{dayEvents.length - 3}件</div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )
@@ -472,104 +364,73 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        {/* 詳細モーダル - 青色ベースに変更 */}
-        {isDetailModalOpen && selectedDateForDetail && (
+        {/* イベント追加モーダル */}
+        {isModalOpen && selectedDate && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md border-2 border-blue-400 max-h-[80vh] flex flex-col">
-              <div className="flex items-center justify-between p-4 border-b border-blue-200 bg-blue-600">
-                <h2 className="text-lg font-bold text-white">{formatDateDisplay(selectedDateForDetail)}</h2>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border-2 border-blue-200">
+              <div className="p-4 border-b border-blue-200 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-gray-900">{selectedDate} のイベント</h3>
                 <button
-                  onClick={() => setIsDetailModalOpen(false)}
-                  className="p-1 hover:bg-blue-700 rounded transition-colors"
+                  onClick={() => setIsModalOpen(false)}
+                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
                 >
-                  <X className="h-5 w-5 text-white" />
+                  <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                {selectedDateEvents.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">この日にイベントはありません</p>
-                ) : (
-                  <div className="space-y-3">
-                    {selectedDateEvents.map((event) => {
-                      const eventStyle = getEventStyle(event)
-                      const isDeletable =
-                        !event.isHoliday && !event.isClosed && !event.isStoreClosed && !event.isNotice && !event.isOrder
-                      return (
+
+              {/* 既存のイベント一覧 */}
+              <div className="p-4 border-b border-blue-100 max-h-48 overflow-y-auto">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">登録済みイベント</h4>
+                {events.filter((e) => e.date === selectedDate).length > 0 ? (
+                  <div className="space-y-2">
+                    {events
+                      .filter((e) => e.date === selectedDate)
+                      .map((event, index) => (
                         <div
-                          key={event.id}
-                          className={`flex items-center justify-between p-3 rounded-lg ${eventStyle.className}`}
-                          style={eventStyle.style}
+                          key={index}
+                          className="flex items-center justify-between p-2 rounded-lg"
+                          style={{ backgroundColor: `${event.color}20` }}
                         >
-                          <span className="font-medium">{event.title}</span>
-                          {isDeletable && (
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: event.color }} />
+                            <span className="text-sm font-medium text-gray-800">{getEventDisplayTitle(event)}</span>
+                          </div>
+                          {event.id && !event.is_global && !isOtherStoreClosedDay(event) && (
                             <button
-                              onClick={() => deleteEventFromDetail(event)}
-                              className="p-1 hover:bg-black/10 rounded transition-colors"
+                              onClick={() => handleDeleteEvent(event.id!)}
+                              className="p-1 hover:bg-red-100 rounded-full transition-colors"
                             >
-                              <X className="h-4 w-4" />
+                              <Trash2 className="w-4 h-4 text-red-500" />
                             </button>
                           )}
                         </div>
-                      )
-                    })}
+                      ))}
                   </div>
+                ) : (
+                  <p className="text-sm text-gray-500">イベントはありません</p>
                 )}
               </div>
-              <div className="p-4 border-t border-blue-200">
-                <button
-                  onClick={openAddModalFromDetail}
-                  className="w-full py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  イベントを追加
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* 追加モーダル - 青色ベースに変更 */}
-        {isModalOpen && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md border-2 border-blue-400">
-              <div className="flex items-center justify-between p-4 border-b border-blue-200 bg-blue-600">
-                <h2 className="text-lg font-bold text-white">イベントを追加</h2>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="p-1 hover:bg-blue-700 rounded transition-colors"
-                >
-                  <X className="h-5 w-5 text-white" />
-                </button>
-              </div>
+              {/* 新規イベント追加フォーム */}
               <div className="p-4 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">日付</label>
-                  <p className="text-gray-900">{selectedDate && formatDateDisplay(selectedDate)}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">タイトル</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">イベント名</label>
                   <input
                     type="text"
                     value={newEventTitle}
                     onChange={(e) => setNewEventTitle(e.target.value)}
-                    className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
                     placeholder="イベント名を入力"
+                    className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">色</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {COLORS.map((color) => (
-                      <button
-                        key={color.value}
-                        onClick={() => setNewEventColor(color.value)}
-                        className={`w-8 h-8 rounded-full border-2 transition-all ${
-                          newEventColor === color.value ? "border-gray-900 scale-110" : "border-transparent"
-                        }`}
-                        style={{ backgroundColor: color.value }}
-                        title={color.name}
-                      />
-                    ))}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">イベントの色</label>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-8 h-8 rounded-full border-2 border-gray-300"
+                      style={{ backgroundColor: currentStoreColor }}
+                    />
+                    <span className="text-sm text-gray-600">{currentStoreName}の店舗カラーが自動適用されます</span>
                   </div>
                 </div>
               </div>
