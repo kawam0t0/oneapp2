@@ -45,12 +45,21 @@ interface StoreCategoryData {
   total: number
 }
 
+interface StoreSalesData {
+  store: string
+  monthlyOnetime: number
+  todayOnetime: number
+  monthlySubsc: number
+  todaySubsc: number
+}
+
 interface ApiResponse {
   monthly: StoreData[]
   today: StoreData[]
   daily?: DailyData[]
   invoiceMonthly?: InvoiceMonthlyData[]
   storeCategories?: StoreCategoryData[]
+  storeSales?: StoreSalesData[]
   error?: string
 }
 
@@ -72,20 +81,20 @@ const STORE_SHORT_NAMES: { [key: string]: string } = {
   "SPLASH'N'GO!太田新田店": "太田新田",
 }
 
-const STORE_COLORS = ["#3b82f6", "#2563eb", "#1d4ed8", "#1e40af", "#1e3a8a", "#0ea5e9"]
+const STORE_COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"]
 
 const STORE_COLOR_MAP: { [key: string]: string } = {
-  "SPLASH'N'GO!前橋50号店": "#3b82f6",
-  "SPLASH'N'GO!伊勢崎韮塚店": "#2563eb",
-  "SPLASH'N'GO!高崎棟高店": "#1d4ed8",
-  "SPLASH'N'GO!足利緑町店": "#1e40af",
-  "SPLASH'N'GO!新前橋店": "#0ea5e9",
-  "SPLASH'N'GO!太田新田店": "#06b6d4",
+  "SPLASH'N'GO!前橋50号店": "#3b82f6", // 青
+  "SPLASH'N'GO!伊勢崎韮塚店": "#22c55e", // 緑
+  "SPLASH'N'GO!高崎棟高店": "#f59e0b", // オレンジ
+  "SPLASH'N'GO!足利緑町店": "#ef4444", // 赤
+  "SPLASH'N'GO!新前橋店": "#8b5cf6", // 紫
+  "SPLASH'N'GO!太田新田店": "#06b6d4", // シアン
 }
 
 const CATEGORY_COLORS: { [key: string]: string } = {
   サブスク: "#3b82f6",
-  リピート: "#2563eb",
+  リピート: "#22c55e",
   新規: "#22c55e",
   コースアップ: "#0ea5e9",
   ポイント: "#8b5cf6",
@@ -114,15 +123,27 @@ const handleLegendClick = (dataKey: string, setHiddenStores: React.Dispatch<Reac
 }
 
 export default function DashboardView() {
-  const [selectedPeriod, setSelectedPeriod] = useState("2025-11")
+  const getCurrentMonth = () => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  }
+
+  const getPreviousMonth = () => {
+    const now = new Date()
+    now.setMonth(now.getMonth() - 1)
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  }
+
+  const [selectedPeriod, setSelectedPeriod] = useState(getCurrentMonth())
   const [monthlyData, setMonthlyData] = useState<StoreData[]>([])
   const [todayData, setTodayData] = useState<StoreData[]>([])
   const [dailyData, setDailyData] = useState<DailyData[]>([])
   const [invoiceMonthlyData, setInvoiceMonthlyData] = useState<InvoiceMonthlyData[]>([])
   const [storeCategories, setStoreCategories] = useState<StoreCategoryData[]>([])
+  const [storeSales, setStoreSales] = useState<StoreSalesData[]>([])
   const [loading, setLoading] = useState(false)
   const [hiddenStores, setHiddenStores] = useState<Set<string>>(new Set())
-  const [categoryPeriod, setCategoryPeriod] = useState("2025-11")
+  const categoryPeriod = getPreviousMonth()
 
   const generatePeriods = () => {
     const periods = []
@@ -155,6 +176,7 @@ export default function DashboardView() {
         setTodayData([])
         setDailyData([])
         setInvoiceMonthlyData([])
+        setStoreSales([])
         return
       }
 
@@ -180,11 +202,13 @@ export default function DashboardView() {
       setTodayData(sortByOrder(filteredToday))
       setDailyData(result.daily || [])
       setInvoiceMonthlyData(result.invoiceMonthly || [])
+      setStoreSales(result.storeSales || [])
     } catch (error) {
       setMonthlyData([])
       setTodayData([])
       setDailyData([])
       setInvoiceMonthlyData([])
+      setStoreSales([])
     } finally {
       setLoading(false)
     }
@@ -209,6 +233,14 @@ export default function DashboardView() {
   const formatPeriodLabel = (period: string) => {
     const [year, month] = period.split("-")
     return `${year}年${Number.parseInt(month)}月`
+  }
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("ja-JP", {
+      style: "currency",
+      currency: "JPY",
+      maximumFractionDigits: 0,
+    }).format(amount)
   }
 
   const monthlyTotal = monthlyData.reduce((sum, store) => sum + store.total, 0)
@@ -251,6 +283,7 @@ export default function DashboardView() {
           {monthlyData.map((store, index) => {
             const todayStore = todayData.find((s) => s.store === store.store)
             const percentage = monthlyTotal > 0 ? ((store.total / monthlyTotal) * 100).toFixed(1) : "0"
+            const sales = storeSales.find((s) => s.store === store.store)
 
             return (
               <Card
@@ -268,16 +301,44 @@ export default function DashboardView() {
                     </h3>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    {/* 月間 */}
                     <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
-                      <p className="text-xs text-blue-700 mb-1">月間</p>
-                      <p className="text-2xl font-bold text-blue-600">{store.total}</p>
-                      <p className="text-xs text-blue-600">台</p>
+                      <p className="text-xs text-blue-700 mb-1 font-medium">月間</p>
+                      <div className="flex items-baseline gap-1 mb-2">
+                        <p className="text-2xl font-bold text-blue-600">{store.total}</p>
+                        <p className="text-xs text-blue-600">台</p>
+                      </div>
+                      {sales && (
+                        <div className="border-t border-blue-200 pt-2">
+                          <p className="text-lg font-bold text-blue-700">
+                            {formatCurrency(sales.monthlyOnetime + sales.monthlySubsc)}
+                          </p>
+                          <div className="flex gap-2 mt-1">
+                            <p className="text-[10px] text-blue-500">WT: {formatCurrency(sales.monthlyOnetime)}</p>
+                            <p className="text-[10px] text-blue-500">SC: {formatCurrency(sales.monthlySubsc)}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
+                    {/* 本日 */}
                     <div className="bg-green-50 rounded-xl p-3 border border-green-200">
-                      <p className="text-xs text-green-700 mb-1">本日</p>
-                      <p className="text-2xl font-bold text-green-600">{todayStore?.total || 0}</p>
-                      <p className="text-xs text-green-600">台</p>
+                      <p className="text-xs text-green-700 mb-1 font-medium">本日</p>
+                      <div className="flex items-baseline gap-1 mb-2">
+                        <p className="text-2xl font-bold text-green-600">{todayStore?.total || 0}</p>
+                        <p className="text-xs text-green-600">台</p>
+                      </div>
+                      {sales && (
+                        <div className="border-t border-green-200 pt-2">
+                          <p className="text-lg font-bold text-green-700">
+                            {formatCurrency(sales.todayOnetime + sales.todaySubsc)}
+                          </p>
+                          <div className="flex gap-2 mt-1">
+                            <p className="text-[10px] text-green-500">WT: {formatCurrency(sales.todayOnetime)}</p>
+                            <p className="text-[10px] text-green-500">SC: {formatCurrency(sales.todaySubsc)}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -382,19 +443,8 @@ export default function DashboardView() {
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <h3 className="text-lg font-bold text-gray-900">店舗別コース構成比</h3>
-              <div className="w-full md:w-48">
-                <Select value={categoryPeriod} onValueChange={setCategoryPeriod}>
-                  <SelectTrigger className="border-2 border-blue-300 bg-white text-gray-900 font-semibold">
-                    <SelectValue placeholder="期間を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {periods.map((period) => (
-                      <SelectItem key={period} value={period}>
-                        {formatPeriodLabel(period)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="px-4 py-2 bg-blue-100 rounded-lg border border-blue-300">
+                <span className="text-blue-700 font-semibold">{formatPeriodLabel(categoryPeriod)}</span>
               </div>
             </div>
 
