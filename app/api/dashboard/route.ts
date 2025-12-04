@@ -177,6 +177,40 @@ export async function GET(request: Request) {
       [todayStr],
     )
 
+    const [monthlyOnetimeSales] = await connection.execute(
+      `SELECT store, SUM(total_net_amount) as total_sales
+       FROM onetime 
+       WHERE date >= ? AND date <= ?
+       AND (card_entry_method IS NULL OR card_entry_method != 'KEYED')
+       GROUP BY store`,
+      [startDate, endDateStr],
+    )
+
+    const [todayOnetimeSales] = await connection.execute(
+      `SELECT store, SUM(total_net_amount) as total_sales
+       FROM onetime 
+       WHERE date = ?
+       AND (card_entry_method IS NULL OR card_entry_method != 'KEYED')
+       GROUP BY store`,
+      [todayStr],
+    )
+
+    const [monthlySubscSales] = await connection.execute(
+      `SELECT store, SUM(total_net_amount) as total_sales
+       FROM invoice 
+       WHERE Date >= ? AND Date <= ?
+       GROUP BY store`,
+      [startDate, endDateStr],
+    )
+
+    const [todaySubscSales] = await connection.execute(
+      `SELECT store, SUM(total_net_amount) as total_sales
+       FROM invoice 
+       WHERE Date = ?
+       GROUP BY store`,
+      [todayStr],
+    )
+
     const [invoiceRows] = await connection.execute(
       `SELECT 
          DATE_FORMAT(Date, '%Y-%m') as month,
@@ -194,6 +228,42 @@ export async function GET(request: Request) {
 
     const monthlyData = aggregateData(monthlyRows as any[])
     const todayData = aggregateData(todayRows as any[])
+
+    const monthlyOnetimeSalesMap = new Map<string, number>()
+    ;(monthlyOnetimeSales as any[]).forEach((row) => {
+      if (row.store && row.store !== "0" && row.store.trim() !== "") {
+        monthlyOnetimeSalesMap.set(row.store, Number(row.total_sales) || 0)
+      }
+    })
+
+    const todayOnetimeSalesMap = new Map<string, number>()
+    ;(todayOnetimeSales as any[]).forEach((row) => {
+      if (row.store && row.store !== "0" && row.store.trim() !== "") {
+        todayOnetimeSalesMap.set(row.store, Number(row.total_sales) || 0)
+      }
+    })
+
+    const monthlySubscSalesMap = new Map<string, number>()
+    ;(monthlySubscSales as any[]).forEach((row) => {
+      if (row.store && row.store !== "0" && row.store.trim() !== "") {
+        monthlySubscSalesMap.set(row.store, Number(row.total_sales) || 0)
+      }
+    })
+
+    const todaySubscSalesMap = new Map<string, number>()
+    ;(todaySubscSales as any[]).forEach((row) => {
+      if (row.store && row.store !== "0" && row.store.trim() !== "") {
+        todaySubscSalesMap.set(row.store, Number(row.total_sales) || 0)
+      }
+    })
+
+    const storeSales = STORE_ORDER.map((store) => ({
+      store,
+      monthlyOnetime: monthlyOnetimeSalesMap.get(store) || 0,
+      todayOnetime: todayOnetimeSalesMap.get(store) || 0,
+      monthlySubsc: monthlySubscSalesMap.get(store) || 0,
+      todaySubsc: todaySubscSalesMap.get(store) || 0,
+    }))
 
     const invoiceDataMap = new Map<string, { [store: string]: number }>()
     ;(invoiceRows as any[]).forEach((row) => {
@@ -223,6 +293,7 @@ export async function GET(request: Request) {
       monthly: monthlyData,
       today: todayData,
       invoiceMonthly,
+      storeSales, // 売上データを追加
     })
   } catch (error) {
     console.error("[v0] Database error:", error)
