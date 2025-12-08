@@ -151,7 +151,7 @@ export function MiniCalendar() {
   // イベントタイトルを短縮
   const shortenTitle = (title: string) => {
     if (title.includes("定休日")) {
-      return "定休日"
+      return ""
     }
     if (title.includes("メンテナンス")) {
       return ""
