@@ -11,7 +11,6 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 
 interface News {
   id: number
@@ -203,9 +202,7 @@ export default function NewsPage() {
       {/* 詳細ダイアログ */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
-          <VisuallyHidden>
-            <DialogTitle>お知らせ詳細</DialogTitle>
-          </VisuallyHidden>
+          <DialogTitle className="sr-only">お知らせ詳細</DialogTitle>
           <div className="bg-blue-600 px-6 py-4">
             <h2 className="text-lg font-bold text-white">お知らせ詳細</h2>
           </div>
@@ -239,9 +236,7 @@ export default function NewsPage() {
       {/* 作成ダイアログ */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
-          <VisuallyHidden>
-            <DialogTitle>お知らせを作成</DialogTitle>
-          </VisuallyHidden>
+          <DialogTitle className="sr-only">お知らせを作成</DialogTitle>
           <div className="bg-blue-600 px-6 py-4">
             <h2 className="text-lg font-bold text-white">お知らせを作成</h2>
           </div>
