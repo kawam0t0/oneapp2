@@ -151,7 +151,7 @@ export function MiniCalendar() {
   // イベントタイトルを短縮
   const shortenTitle = (title: string) => {
     if (title.includes("定休日")) {
-      return ""
+      return "定休日"
     }
     if (title.includes("メンテナンス")) {
       return ""
@@ -233,7 +233,11 @@ export function MiniCalendar() {
                         key={eventIndex}
                         className="text-[8px] leading-tight px-0.5 py-0.5 rounded truncate text-white font-medium"
                         style={{
-                          backgroundColor: event.is_generated_holiday ? "#ef4444" : event.color,
+                          backgroundColor: event.is_generated_holiday
+                            ? "#ef4444"
+                            : event.is_maintenance_week
+                              ? "#22c55e"
+                              : event.color,
                         }}
                         title={event.title}
                       >
