@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Bell, X, Plus } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { NotificationDetailDialog } from "./notification-detail-dialog"
 
 interface Notification {
@@ -15,6 +16,7 @@ interface Notification {
 }
 
 export function NotificationBell() {
+  const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -113,16 +115,20 @@ export function NotificationBell() {
     }
   }
 
+  const handleBellClick = () => {
+    router.push("/news")
+  }
+
   return (
     <>
       <div className="relative" ref={dropdownRef}>
         {/* ベルアイコン */}
         <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="relative p-2 rounded-full hover:bg-gray-100 transition-colors"
+          onClick={handleBellClick}
+          className="relative p-2 rounded-full hover:bg-white/20 transition-colors"
           aria-label="お知らせ"
         >
-          <Bell className="h-6 w-6 text-gray-700" />
+          <Bell className="h-6 w-6 text-white" />
           {/* 未読バッジ */}
           {unreadCount > 0 && (
             <span className="absolute top-0 right-0 h-5 w-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">

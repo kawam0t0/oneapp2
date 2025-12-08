@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { MiniCalendar } from "@/components/mini-calendar"
 
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -278,110 +279,122 @@ export default function DashboardView() {
           </div>
         </div>
 
-        {/* 店舗別詳細カード - 青色ベースに変更 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {monthlyData.map((store, index) => {
-            const todayStore = todayData.find((s) => s.store === store.store)
-            const percentage = monthlyTotal > 0 ? ((store.total / monthlyTotal) * 100).toFixed(1) : "0"
-            const sales = storeSales.find((s) => s.store === store.store)
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* 左側: 店舗カード */}
+          <div className="flex-1">
+            {/* 店舗別詳細カード - 青色ベースに変更 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {monthlyData.map((store, index) => {
+                const todayStore = todayData.find((s) => s.store === store.store)
+                const percentage = monthlyTotal > 0 ? ((store.total / monthlyTotal) * 100).toFixed(1) : "0"
+                const sales = storeSales.find((s) => s.store === store.store)
 
-            return (
-              <Card
-                key={store.store}
-                className="border-2 border-blue-200 bg-white shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]"
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div
-                      className="w-4 h-4 rounded-full"
-                      style={{ backgroundColor: STORE_COLORS[index % STORE_COLORS.length] }}
-                    />
-                    <h3 className="text-base font-bold text-gray-900">
-                      {STORE_SHORT_NAMES[store.store] || store.store}
-                    </h3>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    {/* 月間 */}
-                    <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
-                      <p className="text-xs text-blue-700 mb-1 font-medium">月間</p>
-                      <div className="flex items-baseline gap-1 mb-2">
-                        <p className="text-2xl font-bold text-blue-600">{store.total}</p>
-                        <p className="text-xs text-blue-600">台</p>
+                return (
+                  <Card
+                    key={store.store}
+                    className="border-2 border-blue-200 bg-white shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]"
+                  >
+                    <CardContent className="p-5">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: STORE_COLORS[index % STORE_COLORS.length] }}
+                        />
+                        <h3 className="text-base font-bold text-gray-900">
+                          {STORE_SHORT_NAMES[store.store] || store.store}
+                        </h3>
                       </div>
-                      {sales && (
-                        <div className="border-t border-blue-200 pt-2">
-                          <p className="text-lg font-bold text-blue-700">
-                            {formatCurrency(sales.monthlyOnetime + sales.monthlySubsc)}
-                          </p>
-                          <div className="flex gap-2 mt-1">
-                            <p className="text-[10px] text-blue-500">OT: {formatCurrency(sales.monthlyOnetime)}</p>
-                            <p className="text-[10px] text-blue-500">SC: {formatCurrency(sales.monthlySubsc)}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    {/* 本日 */}
-                    <div className="bg-green-50 rounded-xl p-3 border border-green-200">
-                      <p className="text-xs text-green-700 mb-1 font-medium">本日</p>
-                      <div className="flex items-baseline gap-1 mb-2">
-                        <p className="text-2xl font-bold text-green-600">{todayStore?.total || 0}</p>
-                        <p className="text-xs text-green-600">台</p>
-                      </div>
-                      {sales && (
-                        <div className="border-t border-green-200 pt-2">
-                          <p className="text-lg font-bold text-green-700">
-                            {formatCurrency(sales.todayOnetime + sales.todaySubsc)}
-                          </p>
-                          <div className="flex gap-2 mt-1">
-                            <p className="text-[10px] text-green-500">OT: {formatCurrency(sales.todayOnetime)}</p>
-                            <p className="text-[10px] text-green-500">SC: {formatCurrency(sales.todaySubsc)}</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
 
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm text-gray-500">全体シェア</p>
-                      <p className="text-sm font-bold text-gray-700">{percentage}%</p>
-                    </div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${percentage}%`,
-                          backgroundColor: STORE_COLORS[index % STORE_COLORS.length],
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* カテゴリ内訳 */}
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 mb-2">カテゴリ内訳</p>
-                    <div className="space-y-1.5">
-                      {Object.entries(store.items)
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 5)
-                        .map(([itemName, count]) => {
-                          const todayCount = todayStore?.items?.[itemName] || 0
-                          return (
-                            <div key={itemName} className="flex justify-between items-center">
-                              <span className="text-xs text-gray-600">{itemName}</span>
-                              <span className="text-xs font-semibold text-blue-600">
-                                {count}台<span className="text-green-600 ml-1">({todayCount})</span>
-                              </span>
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        {/* 月間 */}
+                        <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
+                          <p className="text-xs text-blue-700 mb-1 font-medium">月間</p>
+                          <div className="flex items-baseline gap-1 mb-2">
+                            <p className="text-2xl font-bold text-blue-600">{store.total}</p>
+                            <p className="text-xs text-blue-600">台</p>
+                          </div>
+                          {sales && (
+                            <div className="border-t border-blue-200 pt-2">
+                              <p className="text-lg font-bold text-blue-700">
+                                {formatCurrency(sales.monthlyOnetime + sales.monthlySubsc)}
+                              </p>
+                              <div className="flex gap-2 mt-1">
+                                <p className="text-[10px] text-blue-500">OT: {formatCurrency(sales.monthlyOnetime)}</p>
+                                <p className="text-[10px] text-blue-500">SC: {formatCurrency(sales.monthlySubsc)}</p>
+                              </div>
                             </div>
-                          )
-                        })}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+                          )}
+                        </div>
+                        {/* 本日 */}
+                        <div className="bg-green-50 rounded-xl p-3 border border-green-200">
+                          <p className="text-xs text-green-700 mb-1 font-medium">本日</p>
+                          <div className="flex items-baseline gap-1 mb-2">
+                            <p className="text-2xl font-bold text-green-600">{todayStore?.total || 0}</p>
+                            <p className="text-xs text-green-600">台</p>
+                          </div>
+                          {sales && (
+                            <div className="border-t border-green-200 pt-2">
+                              <p className="text-lg font-bold text-green-700">
+                                {formatCurrency(sales.todayOnetime + sales.todaySubsc)}
+                              </p>
+                              <div className="flex gap-2 mt-1">
+                                <p className="text-[10px] text-green-500">OT: {formatCurrency(sales.todayOnetime)}</p>
+                                <p className="text-[10px] text-green-500">SC: {formatCurrency(sales.todaySubsc)}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-sm text-gray-500">全体シェア</p>
+                          <p className="text-sm font-bold text-gray-700">{percentage}%</p>
+                        </div>
+                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${percentage}%`,
+                              backgroundColor: STORE_COLORS[index % STORE_COLORS.length],
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* カテゴリ内訳 */}
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 mb-2">カテゴリ内訳</p>
+                        <div className="space-y-1.5">
+                          {Object.entries(store.items)
+                            .sort((a, b) => b[1] - a[1])
+                            .slice(0, 5)
+                            .map(([itemName, count]) => {
+                              const todayCount = todayStore?.items?.[itemName] || 0
+                              return (
+                                <div key={itemName} className="flex justify-between items-center">
+                                  <span className="text-xs text-gray-600">{itemName}</span>
+                                  <span className="text-xs font-semibold text-blue-600">
+                                    {count}台<span className="text-green-600 ml-1">({todayCount})</span>
+                                  </span>
+                                </div>
+                              )
+                            })}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 右側: ミニカレンダー */}
+          <div className="lg:w-72 flex-shrink-0">
+            <div className="sticky top-4">
+              <MiniCalendar />
+            </div>
+          </div>
         </div>
 
         {/* 店舗別月額会員数 折れ線グラフ - 青色ベースに変更 */}

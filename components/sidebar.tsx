@@ -15,6 +15,7 @@ import {
   LogOut,
   Store,
   Trophy,
+  Wrench,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/components/auth-provider"
@@ -42,6 +43,12 @@ const menuItems = [
     name: "キャンペーン",
     href: "/campaign",
     icon: Trophy,
+    external: false,
+  },
+  {
+    name: "メンテナンス",
+    href: "/maintenance",
+    icon: Wrench,
     external: false,
   },
   {

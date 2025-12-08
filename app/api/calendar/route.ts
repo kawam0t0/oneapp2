@@ -367,6 +367,84 @@ function generateNewYearsEveEvent(year: number, month: number): any[] {
   return events
 }
 
+function generateMaintenanceWeekEvents(year: number, month: number, storeId: number | null): any[] {
+  const events: any[] = []
+
+  if (!storeId) return events
+
+  const storeName = STORE_ID_TO_NAME[storeId]
+  if (!storeName) return events
+
+  // ログインした店舗の定休日ルールを取得
+  const storeRule = STORE_HOLIDAY_RULES.find((rule) => rule.storeName === storeName)
+  if (!storeRule) return events
+
+  const holidays = getJapaneseHolidays(year)
+  const storeColor = STORE_COLOR_MAP[storeName] || "#6b7280"
+
+  // 当月と前月の定休日を確認してメンテナンス週間を計算
+  // 前月の定休日からのメンテナンス週間が今月にかかる可能性があるため
+  const monthsToCheck = [
+    { y: month === 1 ? year - 1 : year, m: month === 1 ? 12 : month - 1 },
+    { y: year, m: month },
+  ]
+
+  for (const { y, m } of monthsToCheck) {
+    // 本来の定休日を計算
+    const originalDateStr = getNthDayOfMonth(y, m, storeRule.dayOfWeek, storeRule.weekOfMonth)
+    const originalDate = new Date(originalDateStr + "T00:00:00")
+
+    // 定休日が祝日や週末の場合は振り替え後の日付を使用
+    const isHoliday = holidays.has(originalDateStr)
+    const isWeekend = originalDate.getDay() === 0 || originalDate.getDay() === 6
+
+    let holidayDate: Date
+    if (isHoliday || isWeekend) {
+      holidayDate = getNextWeekday(originalDate, holidays, new Set())
+    } else {
+      holidayDate = originalDate
+    }
+
+    // 定休日の2週間後の日付
+    const twoWeeksLater = new Date(holidayDate)
+    twoWeeksLater.setDate(twoWeeksLater.getDate() + 14)
+
+    // その日を含む週の日曜日を計算（週の開始日）
+    const dayOfWeek = twoWeeksLater.getDay() // 0=日, 1=月, ..., 6=土
+    const weekStartDate = new Date(twoWeeksLater)
+    weekStartDate.setDate(weekStartDate.getDate() - dayOfWeek) // 日曜日に戻す
+
+    // メンテナンス週間: 日曜日から土曜日までの7日間
+    for (let i = 0; i < 7; i++) {
+      const maintenanceDate = new Date(weekStartDate)
+      maintenanceDate.setDate(maintenanceDate.getDate() + i)
+
+      // 対象月のイベントのみ追加
+      if (maintenanceDate.getMonth() + 1 === month && maintenanceDate.getFullYear() === year) {
+        const dateStr = formatDate(maintenanceDate)
+
+        // 同じ日付のメンテナンス週間イベントが既にあるかチェック
+        const existingEvent = events.find((e) => e.date === dateStr)
+        if (!existingEvent) {
+          events.push({
+            id: `maintenance-${storeName}-${dateStr}`,
+            title: `メンテナンス週間`,
+            date: dateStr,
+            color: storeColor,
+            store_id: storeId,
+            is_global: false, // 店舗固有のイベント
+            store_name: storeName,
+            is_generated_holiday: false,
+            is_maintenance_week: true,
+          })
+        }
+      }
+    }
+  }
+
+  return events
+}
+
 // イベント取得
 export async function GET(request: Request) {
   let connection
@@ -380,8 +458,6 @@ export async function GET(request: Request) {
 
     const session = await getSessionStore()
     const storeId = session?.store_id
-
-    console.log("[v0] GET Calendar - Session storeId:", storeId)
 
     connection = await getConnection()
 
@@ -414,17 +490,7 @@ export async function GET(request: Request) {
     const dbEvents = (rows as any[]).map((row) => {
       const eventStoreId = row.store_id || null
       const storeName = eventStoreId ? STORE_ID_TO_NAME[eventStoreId] || null : null
-      // is_global が 0 または false の場合は false、それ以外は true
       const isGlobal = row.is_global === 1 || row.is_global === true
-
-      console.log("[v0] DB Event:", {
-        id: row.id,
-        title: row.title,
-        store_id: row.store_id,
-        raw_is_global: row.is_global,
-        converted_is_global: isGlobal,
-        currentStoreId: storeId,
-      })
 
       return {
         ...row,
@@ -438,9 +504,10 @@ export async function GET(request: Request) {
     const holidayEvents = generateStoreHolidayEvents(year, month)
     const orderDayEvents = generateOrderDayEvents(year, month)
     const newYearsEveEvents = generateNewYearsEveEvent(year, month)
+    const maintenanceWeekEvents = generateMaintenanceWeekEvents(year, month, storeId)
 
     // DBイベントと自動生成イベントを結合
-    const allEvents = [...dbEvents, ...holidayEvents, ...orderDayEvents, ...newYearsEveEvents]
+    const allEvents = [...dbEvents, ...holidayEvents, ...orderDayEvents, ...newYearsEveEvents, ...maintenanceWeekEvents]
 
     // 日付順でソート
     allEvents.sort((a, b) => a.date.localeCompare(b.date))
@@ -510,8 +577,12 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Event ID is required" }, { status: 400 })
     }
 
-    // 自動生成されたイベント（定休日、発注日）は削除不可
-    if (id.startsWith("holiday-") || id.startsWith("order-") || id.startsWith("nye-")) {
+    if (
+      id.startsWith("holiday-") ||
+      id.startsWith("order-") ||
+      id.startsWith("nye-") ||
+      id.startsWith("maintenance-")
+    ) {
       return NextResponse.json({ error: "Cannot delete generated events" }, { status: 400 })
     }
 
