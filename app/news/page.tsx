@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { useAuth } from "@/components/auth-provider" // useAuthを追加
 
 interface News {
   id: number
@@ -24,6 +25,9 @@ export default function NewsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const highlightId = searchParams.get("id")
+  const { session } = useAuth() // セッション情報を取得
+
+  const isAdmin = session?.store_id === 0 || session?.store_name === "admin"
 
   const [newsList, setNewsList] = useState<News[]>([])
   const [loading, setLoading] = useState(true)
@@ -138,13 +142,15 @@ export default function NewsPage() {
             </Button>
             <h1 className="text-2xl font-bold text-gray-900">お知らせ一覧</h1>
           </div>
-          <Button
-            onClick={() => setIsCreateOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            新規作成
-          </Button>
+          {isAdmin && (
+            <Button
+              onClick={() => setIsCreateOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              新規作成
+            </Button>
+          )}
         </div>
 
         {/* お知らせリスト */}
@@ -199,14 +205,13 @@ export default function NewsPage() {
         )}
       </div>
 
-      {/* 詳細ダイアログ */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-lg p-0 overflow-hidden max-h-[90vh] flex flex-col">
           <DialogTitle className="sr-only">お知らせ詳細</DialogTitle>
-          <div className="bg-blue-600 px-6 py-4">
+          <div className="bg-blue-600 px-6 py-4 flex-shrink-0">
             <h2 className="text-lg font-bold text-white">お知らせ詳細</h2>
           </div>
-          <div className="px-6 py-5">
+          <div className="flex-1 overflow-y-auto px-6 py-5">
             <h3 className="text-xl font-bold text-gray-900 mb-2">{selectedNews?.title}</h3>
             <p className="text-sm text-gray-500 mb-4">{selectedNews && formatDate(selectedNews.published_at)}</p>
             {selectedNews?.image_url && (
@@ -222,7 +227,7 @@ export default function NewsPage() {
               {selectedNews?.message || "詳細はありません"}
             </p>
           </div>
-          <div className="px-6 pb-6">
+          <div className="px-6 py-4 border-t bg-white flex-shrink-0">
             <Button
               onClick={() => setIsDetailOpen(false)}
               className="w-full bg-gray-900 hover:bg-gray-800 text-white py-3"
@@ -233,7 +238,7 @@ export default function NewsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 作成ダイアログ */}
+      {/* 作成ダイアログ - Admin以外は表示されないため変更不要 */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
           <DialogTitle className="sr-only">お知らせを作成</DialogTitle>

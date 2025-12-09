@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { MiniCalendar } from "@/components/mini-calendar"
+import { useAuth } from "@/components/auth-provider" // useAuthを追加
 
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -124,6 +125,10 @@ const handleLegendClick = (dataKey: string, setHiddenStores: React.Dispatch<Reac
 }
 
 export default function DashboardView() {
+  const { session } = useAuth() // セッション情報を取得
+
+  const isAdmin = session?.store_id === 0 || session?.store_name === "admin"
+
   const getCurrentMonth = () => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
@@ -313,7 +318,7 @@ export default function DashboardView() {
                             <p className="text-2xl font-bold text-blue-600">{store.total}</p>
                             <p className="text-xs text-blue-600">台</p>
                           </div>
-                          {sales && (
+                          {isAdmin && sales && (
                             <div className="border-t border-blue-200 pt-2">
                               <p className="text-lg font-bold text-blue-700">
                                 {formatCurrency(sales.monthlyOnetime + sales.monthlySubsc)}
@@ -332,7 +337,7 @@ export default function DashboardView() {
                             <p className="text-2xl font-bold text-green-600">{todayStore?.total || 0}</p>
                             <p className="text-xs text-green-600">台</p>
                           </div>
-                          {sales && (
+                          {isAdmin && sales && (
                             <div className="border-t border-green-200 pt-2">
                               <p className="text-lg font-bold text-green-700">
                                 {formatCurrency(sales.todayOnetime + sales.todaySubsc)}

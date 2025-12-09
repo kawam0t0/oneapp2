@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -20,6 +22,37 @@ import {
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/components/auth-provider"
 
+const STORE_SPREADSHEETS: Record<string, { common: string; store: string }> = {
+  "SPLASH'N'GO!前橋50号店": {
+    common: "https://docs.google.com/spreadsheets/d/1ABKj53q3O4gVxd__6PyYWcxDkl8XpdIJdyGM9E50z0w/edit?usp=sharing",
+    store: "https://docs.google.com/spreadsheets/d/1Q4kJ1YBNRs3_ScblMpzxDHif60u79i9G3EoVb60pZaU/edit?usp=sharing",
+  },
+  "SPLASH'N'GO!伊勢崎韮塚店": {
+    common: "https://docs.google.com/spreadsheets/d/1ABKj53q3O4gVxd__6PyYWcxDkl8XpdIJdyGM9E50z0w/edit?usp=sharing",
+    store: "https://docs.google.com/spreadsheets/d/18CatauVqEfVvcG4bsC2xa4dXbuz9MnkuhfRNrHQ-EWM/edit?usp=sharing",
+  },
+  "SPLASH'N'GO!高崎棟高店": {
+    common: "https://docs.google.com/spreadsheets/d/1ABKj53q3O4gVxd__6PyYWcxDkl8XpdIJdyGM9E50z0w/edit?usp=sharing",
+    store: "https://docs.google.com/spreadsheets/d/1KD9v1CVWW-6Bpy23_aHGybCPU6euN6OFxr07bCrTssk/edit?usp=sharing",
+  },
+  "SPLASH'N'GO!新前橋店": {
+    common: "https://docs.google.com/spreadsheets/d/1ABKj53q3O4gVxd__6PyYWcxDkl8XpdIJdyGM9E50z0w/edit?usp=sharing",
+    store: "https://docs.google.com/spreadsheets/d/1V3m-_6pKHrhvv01kOlusufXqsDFC1wXqWG12JcurcM4/edit?usp=sharing",
+  },
+  "SPLASH'N'GO!足利緑町店": {
+    common: "https://docs.google.com/spreadsheets/d/1ABKj53q3O4gVxd__6PyYWcxDkl8XpdIJdyGM9E50z0w/edit?usp=sharing",
+    store: "https://docs.google.com/spreadsheets/d/1Rjg7oOhylXWsD7oFoqX4gIo6l_MkshSlyAEg_NrzTw8/edit?usp=sharing",
+  },
+  "SPLASH'N'GO!太田新田店": {
+    common: "https://docs.google.com/spreadsheets/d/1ABKj53q3O4gVxd__6PyYWcxDkl8XpdIJdyGM9E50z0w/edit?usp=sharing",
+    store: "https://docs.google.com/spreadsheets/d/15LnujbB0gF08zMsNpGPpUUtb_LsKFohgRP9cNIGeiLk/edit?usp=sharing",
+  },
+}
+
+const ADMIN_SPREADSHEETS = {
+  common: "https://docs.google.com/spreadsheets/d/1ABKj53q3O4gVxd__6PyYWcxDkl8XpdIJdyGM9E50z0w/edit?usp=sharing",
+}
+
 const menuItems = [
   {
     name: "ダッシュボード",
@@ -32,6 +65,7 @@ const menuItems = [
     href: "/spreadsheet",
     icon: FileSpreadsheet,
     external: false,
+    isSpreadsheet: true,
   },
   {
     name: "カレンダー",
@@ -44,6 +78,7 @@ const menuItems = [
     href: "/campaign",
     icon: Trophy,
     external: false,
+    adminOnly: true,
   },
   {
     name: "メンテナンス",
@@ -76,10 +111,33 @@ export function Sidebar() {
   const pathname = usePathname()
   const { session, logout } = useAuth()
 
+  const isAdmin = session?.store_id === 0 || session?.store_name === "admin"
+
   const handleLogout = async () => {
     setIsOpen(false)
     await logout()
   }
+
+  const handleSpreadsheetClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (session?.store_name) {
+      const urls = STORE_SPREADSHEETS[session.store_name]
+      if (urls) {
+        window.open(urls.common, "_blank")
+        window.open(urls.store, "_blank")
+      } else if (isAdmin) {
+        window.open(ADMIN_SPREADSHEETS.common, "_blank")
+      }
+    }
+    setIsOpen(false)
+  }
+
+  const filteredMenuItems = menuItems.filter((item) => {
+    if (item.adminOnly && !isAdmin) {
+      return false
+    }
+    return true
+  })
 
   return (
     <>
@@ -120,7 +178,7 @@ export function Sidebar() {
         )}
 
         <nav className="flex-1 p-4 space-y-2">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon
 
@@ -140,6 +198,23 @@ export function Sidebar() {
                   <span className="flex-1">{item.name}</span>
                   <ExternalLink className="h-4 w-4 text-blue-200" />
                 </a>
+              )
+            }
+
+            if (item.isSpreadsheet) {
+              return (
+                <button
+                  key={item.name}
+                  onClick={handleSpreadsheetClick}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors w-full text-left",
+                    "text-white hover:bg-blue-500",
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="flex-1">{item.name}</span>
+                  <ExternalLink className="h-4 w-4 text-blue-200" />
+                </button>
               )
             }
 

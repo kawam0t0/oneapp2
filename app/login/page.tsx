@@ -21,6 +21,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
+  const isAdminSelected = selectedStore === "0"
+
   useEffect(() => {
     // 店舗一覧を取得
     const fetchStores = async () => {
@@ -37,6 +39,12 @@ export default function LoginPage() {
     fetchStores()
   }, [])
 
+  useEffect(() => {
+    if (isAdminSelected) {
+      setEmail("")
+    }
+  }, [isAdminSelected])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -48,7 +56,7 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           store_id: selectedStore,
-          email,
+          email: isAdminSelected ? "" : email, // adminの場合は空文字
           password,
         }),
       })
@@ -66,6 +74,8 @@ export default function LoginPage() {
       setIsLoading(false)
     }
   }
+
+  const isSubmitDisabled = isLoading || !selectedStore || !password || (!isAdminSelected && !email)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
@@ -104,18 +114,19 @@ export default function LoginPage() {
               </select>
             </div>
 
-            {/* メールアドレス */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">メールアドレス</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="example@example.com"
-                className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
-              />
-            </div>
+            {!isAdminSelected && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">メールアドレス</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required={!isAdminSelected}
+                  placeholder="example@example.com"
+                  className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+                />
+              </div>
+            )}
 
             {/* パスワード */}
             <div>
@@ -142,7 +153,7 @@ export default function LoginPage() {
             {/* ログインボタン - 青色に変更 */}
             <button
               type="submit"
-              disabled={isLoading || !selectedStore || !email || !password}
+              disabled={isSubmitDisabled}
               className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 shadow-md"
             >
               {isLoading ? (

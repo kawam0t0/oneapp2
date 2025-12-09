@@ -38,8 +38,8 @@ const STORE_ID_TO_NAME: { [key: number]: string } = {
 const STORE_HOLIDAY_RULES: { storeName: string; weekOfMonth: number; dayOfWeek: number }[] = [
   { storeName: "足利緑町", weekOfMonth: 1, dayOfWeek: 2 }, // 第一火曜日
   { storeName: "前橋50号", weekOfMonth: 1, dayOfWeek: 3 }, // 第一水曜日
-  { storeName: "高崎棟高", weekOfMonth: 2, dayOfWeek: 2 }, // 第二火曜日
-  { storeName: "伊勢崎韮塚", weekOfMonth: 2, dayOfWeek: 3 }, // 第二水曜日
+  { storeName: "高崎棟高", weekOfMonth: 2, dayOfWeek: 3 }, // 第二水曜日
+  { storeName: "伊勢崎韮塚", weekOfMonth: 2, dayOfWeek: 4 }, // 第二木曜日
   { storeName: "太田新田", weekOfMonth: 3, dayOfWeek: 2 }, // 第三火曜日
   { storeName: "新前橋", weekOfMonth: 3, dayOfWeek: 3 }, // 第三水曜日
 ]

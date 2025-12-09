@@ -18,6 +18,52 @@ export async function POST(request: Request) {
   try {
     const { store_id, email, password } = await request.json()
 
+    if (store_id === 0 || store_id === "0") {
+      // adminログインの場合
+      if (!password) {
+        return NextResponse.json({ error: "パスワードを入力してください" }, { status: 400 })
+      }
+
+      connection = await getConnection()
+
+      // adminユーザーの認証（メールアドレスなし）
+      const [rows] = (await connection.execute("SELECT id, store_name FROM stores WHERE id = 0 AND password = ?", [
+        password,
+      ])) as [any[], any]
+
+      if (rows.length === 0) {
+        return NextResponse.json({ error: "パスワードが正しくありません" }, { status: 401 })
+      }
+
+      const store = rows[0]
+
+      // セッションをクッキーに保存
+      const cookieStore = await cookies()
+      cookieStore.set(
+        "session",
+        JSON.stringify({
+          store_id: store.id,
+          store_name: store.store_name,
+          email: null,
+          is_admin: true,
+          logged_in_at: new Date().toISOString(),
+        }),
+        {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 7, // 7日間
+          path: "/",
+        },
+      )
+
+      return NextResponse.json({
+        success: true,
+        store_name: store.store_name,
+        is_admin: true,
+      })
+    }
+
     if (!store_id || !email || !password) {
       return NextResponse.json({ error: "店舗、メールアドレス、パスワードを入力してください" }, { status: 400 })
     }
@@ -44,6 +90,7 @@ export async function POST(request: Request) {
         store_id: store.id,
         store_name: store.store_name,
         email: store.mail,
+        is_admin: false,
         logged_in_at: new Date().toISOString(),
       }),
       {
@@ -58,6 +105,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       store_name: store.store_name,
+      is_admin: false,
     })
   } catch (error) {
     console.error("[v0] Login error:", error)
