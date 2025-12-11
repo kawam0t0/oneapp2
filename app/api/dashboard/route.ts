@@ -89,8 +89,9 @@ export async function GET(request: Request) {
     const endDate = new Date(Number.parseInt(year), Number.parseInt(month), 0).getDate()
     const endDateStr = `${year}-${month}-${endDate}`
 
-    const today = new Date()
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`
+    const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    const todayStr = `${nowJST.getUTCFullYear()}-${String(nowJST.getUTCMonth() + 1).padStart(2, "0")}-${String(nowJST.getUTCDate()).padStart(2, "0")}`
+    const currentDay = nowJST.getUTCDate()
 
     const connection = await getConnection()
 
@@ -131,7 +132,6 @@ export async function GET(request: Request) {
 
       console.log("[v0] Processed stores:", Array.from(storeMap.keys()))
 
-      // 店舗順にソートして結果を作成
       const storeCategories = STORE_ORDER.filter((store) => storeMap.has(store)).map((store) => {
         const data = storeMap.get(store)!
         const categories = Array.from(data.courses.entries())
@@ -224,6 +224,76 @@ export async function GET(request: Request) {
       [startDate, endDateStr],
     )
 
+    // 今月1日〜今日までの会員数
+    const currentMonthStart = `${year}-${month}-01`
+    const currentMonthEnd = `${year}-${month}-${String(currentDay).padStart(2, "0")}`
+
+    // 前月1日〜前月の同日までの会員数
+    const prevMonth = Number.parseInt(month) === 1 ? 12 : Number.parseInt(month) - 1
+    const prevYear = Number.parseInt(month) === 1 ? Number.parseInt(year) - 1 : Number.parseInt(year)
+    const prevMonthStart = `${prevYear}-${String(prevMonth).padStart(2, "0")}-01`
+    const prevMonthEnd = `${prevYear}-${String(prevMonth).padStart(2, "0")}-${String(currentDay).padStart(2, "0")}`
+
+    // 今月: source = '請求書' のデータ数
+    const [currentSourceCount] = await connection.execute(
+      `SELECT store, COUNT(*) as count
+       FROM invoice 
+       WHERE Date >= ? AND Date <= ?
+       AND source = '請求書'
+       GROUP BY store`,
+      [currentMonthStart, currentMonthEnd],
+    )
+
+    // 今月: card_entry_method = 'ON_FILE' のデータ数
+    const [currentOnFileCount] = await connection.execute(
+      `SELECT store, COUNT(*) as count
+       FROM invoice 
+       WHERE Date >= ? AND Date <= ?
+       AND card_entry_method = 'ON_FILE'
+       GROUP BY store`,
+      [currentMonthStart, currentMonthEnd],
+    )
+
+    // 今月: card_entry_method = 'KEYED' のデータ数
+    const [currentKeyedCount] = await connection.execute(
+      `SELECT store, COUNT(*) as count
+       FROM invoice 
+       WHERE Date >= ? AND Date <= ?
+       AND card_entry_method = 'KEYED'
+       GROUP BY store`,
+      [currentMonthStart, currentMonthEnd],
+    )
+
+    // 前月: source = '請求書' のデータ数
+    const [prevSourceCount] = await connection.execute(
+      `SELECT store, COUNT(*) as count
+       FROM invoice 
+       WHERE Date >= ? AND Date <= ?
+       AND source = '請求書'
+       GROUP BY store`,
+      [prevMonthStart, prevMonthEnd],
+    )
+
+    // 前月: card_entry_method = 'ON_FILE' のデータ数
+    const [prevOnFileCount] = await connection.execute(
+      `SELECT store, COUNT(*) as count
+       FROM invoice 
+       WHERE Date >= ? AND Date <= ?
+       AND card_entry_method = 'ON_FILE'
+       GROUP BY store`,
+      [prevMonthStart, prevMonthEnd],
+    )
+
+    // 前月: card_entry_method = 'KEYED' のデータ数
+    const [prevKeyedCount] = await connection.execute(
+      `SELECT store, COUNT(*) as count
+       FROM invoice 
+       WHERE Date >= ? AND Date <= ?
+       AND card_entry_method = 'KEYED'
+       GROUP BY store`,
+      [prevMonthStart, prevMonthEnd],
+    )
+
     await connection.end()
 
     const monthlyData = aggregateData(monthlyRows as any[])
@@ -257,6 +327,48 @@ export async function GET(request: Request) {
       }
     })
 
+    const currentSourceMap = new Map<string, number>()
+    ;(currentSourceCount as any[]).forEach((row) => {
+      if (row.store && row.store !== "0" && row.store.trim() !== "") {
+        currentSourceMap.set(row.store, Number(row.count) || 0)
+      }
+    })
+
+    const currentOnFileMap = new Map<string, number>()
+    ;(currentOnFileCount as any[]).forEach((row) => {
+      if (row.store && row.store !== "0" && row.store.trim() !== "") {
+        currentOnFileMap.set(row.store, Number(row.count) || 0)
+      }
+    })
+
+    const currentKeyedMap = new Map<string, number>()
+    ;(currentKeyedCount as any[]).forEach((row) => {
+      if (row.store && row.store !== "0" && row.store.trim() !== "") {
+        currentKeyedMap.set(row.store, Number(row.count) || 0)
+      }
+    })
+
+    const prevSourceMap = new Map<string, number>()
+    ;(prevSourceCount as any[]).forEach((row) => {
+      if (row.store && row.store !== "0" && row.store.trim() !== "") {
+        prevSourceMap.set(row.store, Number(row.count) || 0)
+      }
+    })
+
+    const prevOnFileMap = new Map<string, number>()
+    ;(prevOnFileCount as any[]).forEach((row) => {
+      if (row.store && row.store !== "0" && row.store.trim() !== "") {
+        prevOnFileMap.set(row.store, Number(row.count) || 0)
+      }
+    })
+
+    const prevKeyedMap = new Map<string, number>()
+    ;(prevKeyedCount as any[]).forEach((row) => {
+      if (row.store && row.store !== "0" && row.store.trim() !== "") {
+        prevKeyedMap.set(row.store, Number(row.count) || 0)
+      }
+    })
+
     const storeSales = STORE_ORDER.map((store) => ({
       store,
       monthlyOnetime: monthlyOnetimeSalesMap.get(store) || 0,
@@ -264,6 +376,21 @@ export async function GET(request: Request) {
       monthlySubsc: monthlySubscSalesMap.get(store) || 0,
       todaySubsc: todaySubscSalesMap.get(store) || 0,
     }))
+
+    const memberChanges = STORE_ORDER.map((store) => {
+      const currentTotal =
+        (currentSourceMap.get(store) || 0) + (currentOnFileMap.get(store) || 0) + (currentKeyedMap.get(store) || 0)
+
+      const prevTotal =
+        (prevSourceMap.get(store) || 0) + (prevOnFileMap.get(store) || 0) + (prevKeyedMap.get(store) || 0)
+
+      return {
+        store,
+        currentCount: currentTotal,
+        prevCount: prevTotal,
+        change: currentTotal - prevTotal,
+      }
+    })
 
     const invoiceDataMap = new Map<string, { [store: string]: number }>()
     ;(invoiceRows as any[]).forEach((row) => {
@@ -293,7 +420,8 @@ export async function GET(request: Request) {
       monthly: monthlyData,
       today: todayData,
       invoiceMonthly,
-      storeSales, // 売上データを追加
+      storeSales,
+      memberChanges, // 会員数増減データを追加
     })
   } catch (error) {
     console.error("[v0] Database error:", error)

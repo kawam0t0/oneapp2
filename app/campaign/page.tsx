@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { AppLayout } from "@/components/app-layout"
 import { Calendar } from "lucide-react"
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface CampaignData {
   ashikaga: {
@@ -89,6 +90,23 @@ const groupItems = (items: { details: string; count: number }[]) => {
     .filter(([, count]) => count > 0)
     .sort((a, b) => b[1] - a[1])
     .map(([name, count]) => ({ name, count }))
+}
+
+const promotionPrices: { [storeName: string]: { [promoName: string]: number } } = {
+  新前橋店: {
+    PRタイムズ: 80000,
+    "チラシ（5万部）": 200000,
+    モテコ: 50000,
+    インスタけーちゃん: 30000,
+    インスタよここ: 1000,
+    インスタにわつる: 12000,
+  },
+  太田新田店: {
+    PRタイムズ: 110000,
+    "チラシ（1.35万部）※ジョイフォン": 110000,
+    インスタけーちゃん: 40000,
+    インスタ歩き方: 40000,
+  },
 }
 
 export default function CampaignPage() {
@@ -310,6 +328,8 @@ export default function CampaignPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {stores.map((store, index) => {
+              const storePrices = promotionPrices[store.name] || {}
+
               return (
                 <div
                   key={index}
@@ -324,16 +344,37 @@ export default function CampaignPage() {
                   <div className="p-5 space-y-4">
                     <div className="bg-gray-50 rounded-xl p-4">
                       <p className="text-xs font-medium text-gray-500 mb-2">プロモーション</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {store.promotions.map((promo, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-block bg-white border border-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full"
-                          >
-                            {promo}
-                          </span>
-                        ))}
-                      </div>
+                      <TooltipProvider>
+                        <div className="flex flex-wrap gap-1.5">
+                          {store.promotions.map((promo, idx) => {
+                            const price = storePrices[promo]
+
+                            if (price) {
+                              return (
+                                <UITooltip key={idx}>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-block bg-white border border-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors">
+                                      {promo}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="font-medium">¥{price.toLocaleString()}</p>
+                                  </TooltipContent>
+                                </UITooltip>
+                              )
+                            }
+
+                            return (
+                              <span
+                                key={idx}
+                                className="inline-block bg-white border border-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full"
+                              >
+                                {promo}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      </TooltipProvider>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">

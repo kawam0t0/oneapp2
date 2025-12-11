@@ -3,6 +3,7 @@
 import type React from "react"
 import { MiniCalendar } from "@/components/mini-calendar"
 import { useAuth } from "@/components/auth-provider" // useAuthを追加
+import { TrendingUp, TrendingDown, Minus } from "lucide-react"
 
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -55,6 +56,13 @@ interface StoreSalesData {
   todaySubsc: number
 }
 
+interface MemberChangeData {
+  store: string
+  currentCount: number
+  prevCount: number
+  change: number
+}
+
 interface ApiResponse {
   monthly: StoreData[]
   today: StoreData[]
@@ -62,6 +70,7 @@ interface ApiResponse {
   invoiceMonthly?: InvoiceMonthlyData[]
   storeCategories?: StoreCategoryData[]
   storeSales?: StoreSalesData[]
+  memberChanges?: MemberChangeData[] // 会員数増減を追加
   error?: string
 }
 
@@ -147,6 +156,7 @@ export default function DashboardView() {
   const [invoiceMonthlyData, setInvoiceMonthlyData] = useState<InvoiceMonthlyData[]>([])
   const [storeCategories, setStoreCategories] = useState<StoreCategoryData[]>([])
   const [storeSales, setStoreSales] = useState<StoreSalesData[]>([])
+  const [memberChanges, setMemberChanges] = useState<MemberChangeData[]>([]) // 会員数増減のstate追加
   const [loading, setLoading] = useState(false)
   const [hiddenStores, setHiddenStores] = useState<Set<string>>(new Set())
   const categoryPeriod = getPreviousMonth()
@@ -183,6 +193,7 @@ export default function DashboardView() {
         setDailyData([])
         setInvoiceMonthlyData([])
         setStoreSales([])
+        setMemberChanges([]) //
         return
       }
 
@@ -209,12 +220,14 @@ export default function DashboardView() {
       setDailyData(result.daily || [])
       setInvoiceMonthlyData(result.invoiceMonthly || [])
       setStoreSales(result.storeSales || [])
+      setMemberChanges(result.memberChanges || []) //
     } catch (error) {
       setMonthlyData([])
       setTodayData([])
       setDailyData([])
       setInvoiceMonthlyData([])
       setStoreSales([])
+      setMemberChanges([]) //
     } finally {
       setLoading(false)
     }
@@ -293,6 +306,7 @@ export default function DashboardView() {
                 const todayStore = todayData.find((s) => s.store === store.store)
                 const percentage = monthlyTotal > 0 ? ((store.total / monthlyTotal) * 100).toFixed(1) : "0"
                 const sales = storeSales.find((s) => s.store === store.store)
+                const memberChange = memberChanges.find((m) => m.store === store.store)
 
                 return (
                   <Card
@@ -351,21 +365,30 @@ export default function DashboardView() {
                         </div>
                       </div>
 
-                      <div className="mb-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm text-gray-500">全体シェア</p>
-                          <p className="text-sm font-bold text-gray-700">{percentage}%</p>
+                      {memberChange && (
+                        <div className="mb-3 bg-gray-50 rounded-xl p-3 border border-gray-200">
+                          <p className="text-xs text-gray-600 mb-1 font-medium">会員数の増減（前月比）</p>
+                          <div className="flex items-center gap-2">
+                            {memberChange.change > 0 ? (
+                              <>
+                                <TrendingUp className="w-5 h-5 text-green-500" />
+                                <span className="text-xl font-bold text-green-600">+{memberChange.change}</span>
+                              </>
+                            ) : memberChange.change < 0 ? (
+                              <>
+                                <TrendingDown className="w-5 h-5 text-red-500" />
+                                <span className="text-xl font-bold text-red-600">{memberChange.change}</span>
+                              </>
+                            ) : (
+                              <>
+                                <Minus className="w-5 h-5 text-gray-400" />
+                                <span className="text-xl font-bold text-gray-500">±0</span>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${percentage}%`,
-                              backgroundColor: STORE_COLORS[index % STORE_COLORS.length],
-                            }}
-                          />
-                        </div>
-                      </div>
+                      )}
+
 
                       {/* カテゴリ内訳 */}
                       <div>
