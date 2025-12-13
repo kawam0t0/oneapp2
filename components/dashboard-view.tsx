@@ -3,7 +3,8 @@
 import type React from "react"
 import { MiniCalendar } from "@/components/mini-calendar"
 import { useAuth } from "@/components/auth-provider" // useAuthを追加
-import { TrendingUp, TrendingDown, Minus } from "lucide-react"
+import { TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -175,10 +176,23 @@ export default function DashboardView() {
 
   useEffect(() => {
     fetchData()
+
+    const interval = setInterval(() => {
+      fetchData()
+    }, 30000) // 30秒 = 30000ミリ秒
+
+    // クリーンアップ: コンポーネントがアンマウントされたら停止
+    return () => clearInterval(interval)
   }, [selectedPeriod])
 
   useEffect(() => {
     fetchCategoryData()
+
+    const interval = setInterval(() => {
+      fetchCategoryData()
+    }, 30000)
+
+    return () => clearInterval(interval)
   }, [categoryPeriod])
 
   const fetchData = async () => {
@@ -273,309 +287,328 @@ export default function DashboardView() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 p-4 md:p-6">
-      <div className="mx-auto max-w-7xl space-y-6">
-        {/* ヘッダー - 青色に変更 */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 p-6 shadow-lg">
-          <div>
-            <h1 className="text-3xl font-bold text-white">DASHBOARD</h1>
-            <p className="mt-1 text-blue-100">店舗別洗車実績レポート</p>
-          </div>
-          <div className="w-full md:w-64">
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger className="border-2 border-blue-300/30 bg-white text-gray-900 font-semibold shadow-md">
-                <SelectValue placeholder="期間を選択" />
-              </SelectTrigger>
-              <SelectContent>
-                {periods.map((period) => (
-                  <SelectItem key={period} value={period}>
-                    {formatPeriodLabel(period)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* 左側: 店舗カード */}
-          <div className="flex-1">
-            {/* 店舗別詳細カード - 青色ベースに変更 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {monthlyData.map((store, index) => {
-                const todayStore = todayData.find((s) => s.store === store.store)
-                const percentage = monthlyTotal > 0 ? ((store.total / monthlyTotal) * 100).toFixed(1) : "0"
-                const sales = storeSales.find((s) => s.store === store.store)
-                const memberChange = memberChanges.find((m) => m.store === store.store)
-
-                return (
-                  <Card
-                    key={store.store}
-                    className="border-2 border-blue-200 bg-white shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]"
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+      <div className="px-3 py-6 md:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl space-y-6">
+          {/* Period Selector */}
+          <Card className="overflow-hidden border-blue-100 bg-gradient-to-r from-blue-600 to-blue-500 shadow-xl">
+            <CardContent className="p-4 md:p-6">
+              <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-white md:text-2xl">DASHBOARD</h2>
+                  <p className="text-sm text-blue-100">店舗別洗車実績レポート</p>
+                </div>
+                <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center md:w-auto">
+                  <Button
+                    onClick={() => {
+                      fetchData()
+                      fetchCategoryData()
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="border-white/20 bg-white/10 text-white hover:bg-white/20"
                   >
-                    <CardContent className="p-5">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div
-                          className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: STORE_COLORS[index % STORE_COLORS.length] }}
-                        />
-                        <h3 className="text-base font-bold text-gray-900">
-                          {STORE_SHORT_NAMES[store.store] || store.store}
-                        </h3>
-                      </div>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    更新
+                  </Button>
+                  <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                    <SelectTrigger className="border-2 border-blue-300/30 bg-white text-gray-900 font-semibold shadow-md">
+                      <SelectValue placeholder="期間を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {periods.map((period) => (
+                        <SelectItem key={period} value={period}>
+                          {formatPeriodLabel(period)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        {/* 月間 */}
-                        <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
-                          <p className="text-xs text-blue-700 mb-1 font-medium">月間</p>
-                          <div className="flex items-baseline gap-1 mb-2">
-                            <p className="text-2xl font-bold text-blue-600">{store.total}</p>
-                            <p className="text-xs text-blue-600">台</p>
-                          </div>
-                          {isAdmin && sales && (
-                            <div className="border-t border-blue-200 pt-2">
-                              <p className="text-lg font-bold text-blue-700">
-                                {formatCurrency(sales.monthlyOnetime + sales.monthlySubsc)}
-                              </p>
-                              <div className="flex gap-2 mt-1">
-                                <p className="text-[10px] text-blue-500">OT: {formatCurrency(sales.monthlyOnetime)}</p>
-                                <p className="text-[10px] text-blue-500">SC: {formatCurrency(sales.monthlySubsc)}</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        {/* 本日 */}
-                        <div className="bg-green-50 rounded-xl p-3 border border-green-200">
-                          <p className="text-xs text-green-700 mb-1 font-medium">本日</p>
-                          <div className="flex items-baseline gap-1 mb-2">
-                            <p className="text-2xl font-bold text-green-600">{todayStore?.total || 0}</p>
-                            <p className="text-xs text-green-600">台</p>
-                          </div>
-                          {isAdmin && sales && (
-                            <div className="border-t border-green-200 pt-2">
-                              <p className="text-lg font-bold text-green-700">
-                                {formatCurrency(sales.todayOnetime + sales.todaySubsc)}
-                              </p>
-                              <div className="flex gap-2 mt-1">
-                                <p className="text-[10px] text-green-500">OT: {formatCurrency(sales.todayOnetime)}</p>
-                                <p className="text-[10px] text-green-500">SC: {formatCurrency(sales.todaySubsc)}</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* 左側: 店舗カード */}
+            <div className="flex-1">
+              {/* 店舗別詳細カード - 青色ベースに変更 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {monthlyData.map((store, index) => {
+                  const todayStore = todayData.find((s) => s.store === store.store)
+                  const percentage = monthlyTotal > 0 ? ((store.total / monthlyTotal) * 100).toFixed(1) : "0"
+                  const sales = storeSales.find((s) => s.store === store.store)
+                  const memberChange = memberChanges.find((m) => m.store === store.store)
 
-                      {memberChange && (
-                        <div className="mb-3 bg-gray-50 rounded-xl p-3 border border-gray-200">
-                          <p className="text-xs text-gray-600 mb-1 font-medium">会員数の増減（前月比）</p>
-                          <div className="flex items-center gap-2">
-                            {memberChange.change > 0 ? (
-                              <>
-                                <TrendingUp className="w-5 h-5 text-green-500" />
-                                <span className="text-xl font-bold text-green-600">+{memberChange.change}</span>
-                              </>
-                            ) : memberChange.change < 0 ? (
-                              <>
-                                <TrendingDown className="w-5 h-5 text-red-500" />
-                                <span className="text-xl font-bold text-red-600">{memberChange.change}</span>
-                              </>
-                            ) : (
-                              <>
-                                <Minus className="w-5 h-5 text-gray-400" />
-                                <span className="text-xl font-bold text-gray-500">±0</span>
-                              </>
+                  return (
+                    <Card
+                      key={store.store}
+                      className="border-2 border-blue-200 bg-white shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]"
+                    >
+                      <CardContent className="p-5">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div
+                            className="w-4 h-4 rounded-full"
+                            style={{ backgroundColor: STORE_COLORS[index % STORE_COLORS.length] }}
+                          />
+                          <h3 className="text-base font-bold text-gray-900">
+                            {STORE_SHORT_NAMES[store.store] || store.store}
+                          </h3>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                          {/* 月間 */}
+                          <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
+                            <p className="text-xs text-blue-700 mb-1 font-medium">月間</p>
+                            <div className="flex items-baseline gap-1 mb-2">
+                              <p className="text-2xl font-bold text-blue-600">{store.total}</p>
+                              <p className="text-xs text-blue-600">台</p>
+                            </div>
+                            {isAdmin && sales && (
+                              <div className="border-t border-blue-200 pt-2">
+                                <p className="text-lg font-bold text-blue-700">
+                                  {formatCurrency(sales.monthlyOnetime + sales.monthlySubsc)}
+                                </p>
+                                <div className="flex gap-2 mt-1">
+                                  <p className="text-[10px] text-blue-500">
+                                    OT: {formatCurrency(sales.monthlyOnetime)}
+                                  </p>
+                                  <p className="text-[10px] text-blue-500">SC: {formatCurrency(sales.monthlySubsc)}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          {/* 本日 */}
+                          <div className="bg-green-50 rounded-xl p-3 border border-green-200">
+                            <p className="text-xs text-green-700 mb-1 font-medium">本日</p>
+                            <div className="flex items-baseline gap-1 mb-2">
+                              <p className="text-2xl font-bold text-green-600">{todayStore?.total || 0}</p>
+                              <p className="text-xs text-green-600">台</p>
+                            </div>
+                            {isAdmin && sales && (
+                              <div className="border-t border-green-200 pt-2">
+                                <p className="text-lg font-bold text-green-700">
+                                  {formatCurrency(sales.todayOnetime + sales.todaySubsc)}
+                                </p>
+                                <div className="flex gap-2 mt-1">
+                                  <p className="text-[10px] text-green-500">OT: {formatCurrency(sales.todayOnetime)}</p>
+                                  <p className="text-[10px] text-green-500">SC: {formatCurrency(sales.todaySubsc)}</p>
+                                </div>
+                              </div>
                             )}
                           </div>
                         </div>
-                      )}
 
+                        {memberChange && (
+                          <div className="mb-3 bg-gray-50 rounded-xl p-3 border border-gray-200">
+                            <p className="text-xs text-gray-600 mb-1 font-medium">会員数の増減（前月比）</p>
+                            <div className="flex items-center gap-2">
+                              {memberChange.change > 0 ? (
+                                <>
+                                  <TrendingUp className="w-5 h-5 text-green-500" />
+                                  <span className="text-xl font-bold text-green-600">+{memberChange.change}</span>
+                                </>
+                              ) : memberChange.change < 0 ? (
+                                <>
+                                  <TrendingDown className="w-5 h-5 text-red-500" />
+                                  <span className="text-xl font-bold text-red-600">{memberChange.change}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Minus className="w-5 h-5 text-gray-400" />
+                                  <span className="text-xl font-bold text-gray-500">±0</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
 
-                      {/* カテゴリ内訳 */}
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 mb-2">カテゴリ内訳</p>
-                        <div className="space-y-1.5">
-                          {Object.entries(store.items)
-                            .sort((a, b) => b[1] - a[1])
-                            .slice(0, 5)
-                            .map(([itemName, count]) => {
-                              const todayCount = todayStore?.items?.[itemName] || 0
-                              return (
-                                <div key={itemName} className="flex justify-between items-center">
-                                  <span className="text-xs text-gray-600">{itemName}</span>
-                                  <span className="text-xs font-semibold text-blue-600">
-                                    {count}台<span className="text-green-600 ml-1">({todayCount})</span>
-                                  </span>
-                                </div>
-                              )
-                            })}
+                        {/* カテゴリ内訳 */}
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 mb-2">カテゴリ内訳</p>
+                          <div className="space-y-1.5">
+                            {Object.entries(store.items)
+                              .sort((a, b) => b[1] - a[1])
+                              .slice(0, 5)
+                              .map(([itemName, count]) => {
+                                const todayCount = todayStore?.items?.[itemName] || 0
+                                return (
+                                  <div key={itemName} className="flex justify-between items-center">
+                                    <span className="text-xs text-gray-600">{itemName}</span>
+                                    <span className="text-xs font-semibold text-blue-600">
+                                      {count}台<span className="text-green-600 ml-1">({todayCount})</span>
+                                    </span>
+                                  </div>
+                                )
+                              })}
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* 右側: ミニカレンダー */}
-          <div className="lg:w-72 flex-shrink-0">
-            <div className="sticky top-4">
-              <MiniCalendar />
-            </div>
-          </div>
-        </div>
-
-        {/* 店舗別月額会員数 折れ線グラフ - 青色ベースに変更 */}
-        <Card className="border-2 border-blue-200 bg-white shadow-lg">
-          <CardContent className="p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">店舗別月額会員数</h3>
-            <div className="h-80">
-              {invoiceMonthlyData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={invoiceMonthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#dbeafe" />
-                    <XAxis
-                      dataKey="month"
-                      tick={{ fontSize: 12, fill: "#6b7280" }}
-                      axisLine={{ stroke: "#3b82f6" }}
-                      tickFormatter={(value: string) => {
-                        const [year, month] = value.split("-")
-                        return `${year}年${month}月`
-                      }}
-                    />
-                    <YAxis tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={{ stroke: "#3b82f6" }} />
-                    <Tooltip
-                      formatter={(value: number, name: string) => [`${value}人`, STORE_SHORT_NAMES[name] || name]}
-                      contentStyle={{
-                        backgroundColor: "white",
-                        border: "2px solid #3b82f6",
-                        borderRadius: "8px",
-                        boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-                      }}
-                      labelFormatter={(label: string) => {
-                        const [year, month] = label.split("-")
-                        return `${year}年${month}月`
-                      }}
-                    />
-                    <Legend
-                      formatter={(value) => STORE_SHORT_NAMES[value] || value}
-                      onClick={(e) => handleLegendClick(e.dataKey as string, setHiddenStores)}
-                      wrapperStyle={{ cursor: "pointer" }}
-                    />
-                    {STORE_ORDER.map((store) => (
-                      <Line
-                        key={store}
-                        type="monotone"
-                        dataKey={store}
-                        stroke={STORE_COLOR_MAP[store]}
-                        strokeWidth={2}
-                        dot={{ fill: STORE_COLOR_MAP[store], strokeWidth: 1, r: 2 }}
-                        activeDot={{ r: 4 }}
-                        hide={hiddenStores.has(store)}
-                      />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">データがありません</div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 店舗別コース構成比 - 青色ベースに変更 */}
-        <Card className="border-2 border-blue-200 bg-white shadow-lg">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <h3 className="text-lg font-bold text-gray-900">店舗別コース構成比</h3>
-              <div className="px-4 py-2 bg-blue-100 rounded-lg border border-blue-300">
-                <span className="text-blue-700 font-semibold">{formatPeriodLabel(categoryPeriod)}</span>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             </div>
 
-            {storeCategories.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {storeCategories.map((storeData, storeIndex) => (
-                  <div
-                    key={storeData.store}
-                    className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-2xl p-4 border border-blue-200 shadow-sm"
-                  >
-                    {/* 店舗名ヘッダー */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: STORE_COLORS[storeIndex % STORE_COLORS.length] }}
+            {/* 右側: ミニカレンダー */}
+            <div className="lg:w-72 flex-shrink-0">
+              <div className="sticky top-4">
+                <MiniCalendar />
+              </div>
+            </div>
+          </div>
+
+          {/* 店舗別月額会員数 折れ線グラフ - 青色ベースに変更 */}
+          <Card className="border-2 border-blue-200 bg-white shadow-lg">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">店舗別月額会員数</h3>
+              <div className="h-80">
+                {invoiceMonthlyData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={invoiceMonthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#dbeafe" />
+                      <XAxis
+                        dataKey="month"
+                        tick={{ fontSize: 12, fill: "#6b7280" }}
+                        axisLine={{ stroke: "#3b82f6" }}
+                        tickFormatter={(value: string) => {
+                          const [year, month] = value.split("-")
+                          return `${year}年${month}月`
+                        }}
                       />
-                      <h4 className="font-bold text-gray-800">
-                        {STORE_SHORT_NAMES[storeData.store] || storeData.store}
-                      </h4>
-                      <span className="ml-auto text-sm text-gray-500">計 {storeData.total}人</span>
-                    </div>
-
-                    {/* ドーナツチャート */}
-                    <div className="h-48 relative">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={storeData.categories}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={45}
-                            outerRadius={70}
-                            paddingAngle={3}
-                            dataKey="value"
-                            stroke="none"
-                          >
-                            {storeData.categories.map((entry, index) => (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={COURSE_COLORS[entry.name] || "#9ca3af"}
-                                className="drop-shadow-sm"
-                              />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            formatter={(value: number, name: string) => [`${value}人`, name]}
-                            contentStyle={{
-                              backgroundColor: "white",
-                              border: "2px solid #3b82f6",
-                              borderRadius: "8px",
-                              boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-                              fontSize: "12px",
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                      {/* 中央にトータル表示 */}
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="text-center">
-                          <p className="text-2xl font-bold text-gray-800">{storeData.total}</p>
-                          <p className="text-xs text-gray-500">人</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* カテゴリ凡例 */}
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      {storeData.categories.map((category) => (
-                        <div key={category.name} className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: COURSE_COLORS[category.name] || "#9ca3af" }}
-                          />
-                          <span className="text-xs text-gray-600 truncate">{category.name}</span>
-                          <span className="text-xs font-semibold text-gray-800 ml-auto">{category.percentage}%</span>
-                        </div>
+                      <YAxis tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={{ stroke: "#3b82f6" }} />
+                      <Tooltip
+                        formatter={(value: number, name: string) => [`${value}人`, STORE_SHORT_NAMES[name] || name]}
+                        contentStyle={{
+                          backgroundColor: "white",
+                          border: "2px solid #3b82f6",
+                          borderRadius: "8px",
+                          boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+                        }}
+                        labelFormatter={(label: string) => {
+                          const [year, month] = label.split("-")
+                          return `${year}年${month}月`
+                        }}
+                      />
+                      <Legend
+                        formatter={(value) => STORE_SHORT_NAMES[value] || value}
+                        onClick={(e) => handleLegendClick(e.dataKey as string, setHiddenStores)}
+                        wrapperStyle={{ cursor: "pointer" }}
+                      />
+                      {STORE_ORDER.map((store) => (
+                        <Line
+                          key={store}
+                          type="monotone"
+                          dataKey={store}
+                          stroke={STORE_COLOR_MAP[store]}
+                          strokeWidth={2}
+                          dot={{ fill: STORE_COLOR_MAP[store], strokeWidth: 1, r: 2 }}
+                          activeDot={{ r: 4 }}
+                          hide={hiddenStores.has(store)}
+                        />
                       ))}
-                    </div>
-                  </div>
-                ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">データがありません</div>
+                )}
               </div>
-            ) : (
-              <div className="flex items-center justify-center h-64 text-gray-500">データがありません</div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* 店舗別コース構成比 - 青色ベースに変更 */}
+          <Card className="border-2 border-blue-200 bg-white shadow-lg">
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <h3 className="text-lg font-bold text-gray-900">店舗別コース構成比</h3>
+                <div className="px-4 py-2 bg-blue-100 rounded-lg border border-blue-300">
+                  <span className="text-blue-700 font-semibold">{formatPeriodLabel(categoryPeriod)}</span>
+                </div>
+              </div>
+
+              {storeCategories.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {storeCategories.map((storeData, storeIndex) => (
+                    <div
+                      key={storeData.store}
+                      className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-2xl p-4 border border-blue-200 shadow-sm"
+                    >
+                      {/* 店舗名ヘッダー */}
+                      <div className="flex items-center gap-2 mb-3">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: STORE_COLORS[storeIndex % STORE_COLORS.length] }}
+                        />
+                        <h4 className="font-bold text-gray-800">
+                          {STORE_SHORT_NAMES[storeData.store] || storeData.store}
+                        </h4>
+                        <span className="ml-auto text-sm text-gray-500">計 {storeData.total}人</span>
+                      </div>
+
+                      {/* ドーナツチャート */}
+                      <div className="h-48 relative">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={storeData.categories}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={45}
+                              outerRadius={70}
+                              paddingAngle={3}
+                              dataKey="value"
+                              stroke="none"
+                            >
+                              {storeData.categories.map((entry, index) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={COURSE_COLORS[entry.name] || "#9ca3af"}
+                                  className="drop-shadow-sm"
+                                />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              formatter={(value: number, name: string) => [`${value}人`, name]}
+                              contentStyle={{
+                                backgroundColor: "white",
+                                border: "2px solid #3b82f6",
+                                borderRadius: "8px",
+                                boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+                                fontSize: "12px",
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        {/* 中央にトータル表示 */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="text-center">
+                            <p className="text-2xl font-bold text-gray-800">{storeData.total}</p>
+                            <p className="text-xs text-gray-500">人</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* カテゴリ凡例 */}
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        {storeData.categories.map((category) => (
+                          <div key={category.name} className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: COURSE_COLORS[category.name] || "#9ca3af" }}
+                            />
+                            <span className="text-xs text-gray-600 truncate">{category.name}</span>
+                            <span className="text-xs font-semibold text-gray-800 ml-auto">{category.percentage}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-64 text-gray-500">データがありません</div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )
