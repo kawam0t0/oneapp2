@@ -146,19 +146,19 @@ export default function MaintenancePage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto p-4 md:p-6">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div className="flex items-center gap-4">
+        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 space-y-0">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button variant="outline" size="sm" onClick={() => router.back()} className="flex items-center gap-2">
               <ArrowLeft className="w-4 h-4" />
               戻る
             </Button>
-            <CardTitle className="text-2xl font-bold">メンテナンス履歴</CardTitle>
+            <CardTitle className="text-xl md:text-2xl font-bold">メンテナンス履歴</CardTitle>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 メンテナンスを追加
               </Button>
@@ -249,38 +249,74 @@ export default function MaintenancePage() {
               <p className="text-sm">「メンテナンスを追加」ボタンから追加してください</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>題名</TableHead>
-                  <TableHead>ファイル</TableHead>
-                  <TableHead>登録日時</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* デスクトップ表示 */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>題名</TableHead>
+                      <TableHead>ファイル</TableHead>
+                      <TableHead>登録日時</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {records.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell className="font-medium">{record.title}</TableCell>
+                        <TableCell>
+                          {record.file_name ? (
+                            <a
+                              href={`/api/maintenance/${record.id}/file`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                              <Download className="w-4 h-4" />
+                              {record.file_name}
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{formatDate(record.created_at)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* スマホ表示 */}
+              <div className="md:hidden space-y-3">
                 {records.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell className="font-medium">{record.title}</TableCell>
-                    <TableCell>
-                      {record.file_name ? (
-                        <a
-                          href={`/api/maintenance/${record.id}/file`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
-                        >
-                          <Download className="w-4 h-4" />
-                          {record.file_name}
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{formatDate(record.created_at)}</TableCell>
-                  </TableRow>
+                  <div key={record.id} className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <h3 className="font-semibold text-gray-900 mb-2">{record.title}</h3>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="text-gray-600">ファイル: </span>
+                        {record.file_name ? (
+                          <a
+                            href={`/api/maintenance/${record.id}/file`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                          >
+                            <Download className="w-3 h-3" />
+                            {record.file_name}
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-gray-600">登録日時: </span>
+                        <span className="text-gray-900">{formatDate(record.created_at)}</span>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
