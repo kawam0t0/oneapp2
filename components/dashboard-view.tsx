@@ -400,7 +400,7 @@ export default function DashboardView() {
 
                         {memberChange && (
                           <div className="mb-3 bg-gray-50 rounded-xl p-3 border border-gray-200">
-                            <p className="text-xs text-gray-600 mb-1 font-medium">会員数の増減（前月比）</p>
+                            <p className="text-xs text-gray-600 mb-1 font-medium">会員数の増減（同日前月比）</p>
                             <div className="flex items-center gap-2">
                               {memberChange.change > 0 ? (
                                 <>
