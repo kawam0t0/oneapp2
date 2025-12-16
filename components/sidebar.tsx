@@ -88,6 +88,12 @@ const menuItems = [
     icon: Wrench,
     external: false,
   },
+    {
+    name: "日報",
+    href: "https://www.appsheet.com/start/43947cc3-3995-4964-9245-9131aa293b5e",
+    icon: ClipboardList,
+    external: true,
+  },
   //{
     //name: "日報",
     //href: "/daily-report",
