@@ -18,6 +18,8 @@ import {
   Store,
   Trophy,
   Wrench,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/components/auth-provider"
@@ -25,7 +27,7 @@ import { useAuth } from "@/components/auth-provider"
 const STORE_SPREADSHEETS: Record<string, { common: string; store: string }> = {
   "SPLASH'N'GO!前橋50号店": {
     common: "https://docs.google.com/spreadsheets/d/1ABKj53q3O4gVxd__6PyYWcxDkl8XpdIJdyGM9E50z0w/edit?usp=sharing",
-    store: "https://docs.google.com/spreadsheets/d/1Q4kJ1YBNRs3_ScblMpzxDHif60u79i9G3EoVb60pZaU/edit?usp=sharing",
+    store: "https://docs.google.com/spreadsheets/d/1aW1T-sdZNnJ80yUcr5b6ZI8phabOBQTmiPQauLYT-bY/edit?usp=sharing",
   },
   "SPLASH'N'GO!伊勢崎韮塚店": {
     common: "https://docs.google.com/spreadsheets/d/1ABKj53q3O4gVxd__6PyYWcxDkl8XpdIJdyGM9E50z0w/edit?usp=sharing",
@@ -92,6 +94,12 @@ const menuItems = [
     icon: ClipboardList,
     external: true,
   },
+  //{
+    //name: "日報",
+    //href: "/daily-report",
+    //icon: ClipboardList,
+    //external: false,
+  //},
   {
     name: "備品発注",
     href: "https://kawam0t0-orderwebapp20250502.vercel.app/login",
@@ -108,6 +116,7 @@ const menuItems = [
 
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
+  const [isSpreadsheetSubmenuOpen, setIsSpreadsheetSubmenuOpen] = useState(false)
   const pathname = usePathname()
   const { session, logout } = useAuth()
 
@@ -118,15 +127,27 @@ export function Sidebar() {
     await logout()
   }
 
-  const handleSpreadsheetClick = (e: React.MouseEvent) => {
+  const handleCommonSpreadsheetClick = (e: React.MouseEvent) => {
     e.preventDefault()
     if (session?.store_name) {
       const urls = STORE_SPREADSHEETS[session.store_name]
       if (urls) {
         window.open(urls.common, "_blank")
-        window.open(urls.store, "_blank")
       } else if (isAdmin) {
         window.open(ADMIN_SPREADSHEETS.common, "_blank")
+      }
+    } else if (isAdmin) {
+      window.open(ADMIN_SPREADSHEETS.common, "_blank")
+    }
+    setIsOpen(false)
+  }
+
+  const handleStoreSpreadsheetClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (session?.store_name) {
+      const urls = STORE_SPREADSHEETS[session.store_name]
+      if (urls) {
+        window.open(urls.store, "_blank")
       }
     }
     setIsOpen(false)
@@ -177,7 +198,7 @@ export function Sidebar() {
           </div>
         )}
 
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {filteredMenuItems.map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon
@@ -203,18 +224,42 @@ export function Sidebar() {
 
             if (item.isSpreadsheet) {
               return (
-                <button
-                  key={item.name}
-                  onClick={handleSpreadsheetClick}
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors w-full text-left",
-                    "text-white hover:bg-blue-500",
+                <div key={item.name}>
+                  <button
+                    onClick={() => setIsSpreadsheetSubmenuOpen(!isSpreadsheetSubmenuOpen)}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors w-full text-left",
+                      "text-white hover:bg-blue-500",
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span className="flex-1">{item.name}</span>
+                    {isSpreadsheetSubmenuOpen ? (
+                      <ChevronUp className="h-4 w-4 text-blue-200" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-blue-200" />
+                    )}
+                  </button>
+
+                  {isSpreadsheetSubmenuOpen && (
+                    <div className="ml-4 mt-1 space-y-1">
+                      <button
+                        onClick={handleCommonSpreadsheetClick}
+                        className="flex items-center gap-3 px-4 py-2 rounded-lg text-white hover:bg-blue-500 transition-colors w-full text-left text-sm"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        <span>移動ラベル</span>
+                      </button>
+                      <button
+                        onClick={handleStoreSpreadsheetClick}
+                        className="flex items-center gap-3 px-4 py-2 rounded-lg text-white hover:bg-blue-500 transition-colors w-full text-left text-sm"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        <span>各店舗シート</span>
+                      </button>
+                    </div>
                   )}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="flex-1">{item.name}</span>
-                  <ExternalLink className="h-4 w-4 text-blue-200" />
-                </button>
+                </div>
               )
             }
 

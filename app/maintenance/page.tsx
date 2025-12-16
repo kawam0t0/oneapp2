@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, FileText, Download, ArrowLeft } from "lucide-react"
+import { Plus, FileText, Download, ArrowLeft, ImageIcon } from "lucide-react"
+import { MaintenanceImageGenerator } from "@/components/maintenance-image-generator"
 
 interface MaintenanceRecord {
   id: number
@@ -39,6 +40,8 @@ export default function MaintenancePage() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>("")
   const [file, setFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isImageGeneratorOpen, setIsImageGeneratorOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const titleOptions = ["マンスリーメンテナンス結果報告", "定期メンテナンス結果報告"]
 
@@ -51,6 +54,7 @@ export default function MaintenancePage() {
           setStoreName(data.store_name || "")
           setStoreId(data.store_id || null)
           setSelectedStoreId(data.store_id?.toString() || "")
+          setIsAdmin(data.store_id === 0)
         }
       } catch (error) {
         console.error("Failed to fetch session:", error)
@@ -156,80 +160,92 @@ export default function MaintenancePage() {
             </Button>
             <CardTitle className="text-xl md:text-2xl font-bold">メンテナンス履歴</CardTitle>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
-                <Plus className="w-4 h-4 mr-2" />
-                メンテナンスを追加
+          <div className="flex gap-2 w-full sm:w-auto">
+            {isAdmin && (
+              <Button
+                onClick={() => setIsImageGeneratorOpen(true)}
+                variant="outline"
+                className="border-blue-600 text-blue-600 hover:bg-blue-50 w-full sm:w-auto"
+              >
+                <ImageIcon className="w-4 h-4 mr-2" />
+                メンテ画像生成
               </Button>
-            </DialogTrigger>
-            <DialogContent className="border-t-4 border-t-blue-600">
-              <DialogHeader className="bg-blue-50 -mx-6 -mt-6 px-6 py-4 rounded-t-lg">
-                <DialogTitle className="text-blue-800">メンテナンス履歴を追加</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-                <div className="space-y-2">
-                  <Label htmlFor="store" className="text-blue-800 font-medium">
-                    店舗
-                  </Label>
-                  <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                    <SelectTrigger className="border-blue-200 focus:border-blue-500 focus:ring-blue-500">
-                      <SelectValue placeholder="店舗を選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {stores.map((store) => (
-                        <SelectItem key={store.id} value={store.id.toString()}>
-                          {store.store_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="title" className="text-blue-800 font-medium">
-                    題名
-                  </Label>
-                  <Select value={title} onValueChange={setTitle}>
-                    <SelectTrigger className="border-blue-200 focus:border-blue-500 focus:ring-blue-500">
-                      <SelectValue placeholder="題名を選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {titleOptions.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="file" className="text-blue-800 font-medium">
-                    PDFファイル（任意）
-                  </Label>
-                  <Input
-                    id="file"
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                    className="border-blue-200 focus:border-blue-500 focus:ring-blue-500"
-                  />
-                  {file && <p className="text-sm text-blue-600">選択済み: {file.name}</p>}
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    キャンセル
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                    disabled={isSubmitting || !title || !selectedStoreId}
-                  >
-                    {isSubmitting ? "登録中..." : "登録"}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+            )}
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
+                  <Plus className="w-4 h-4 mr-2" />
+                  メンテナンスを追加
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="border-t-4 border-t-blue-600">
+                <DialogHeader className="bg-blue-50 -mx-6 -mt-6 px-6 py-4 rounded-t-lg">
+                  <DialogTitle className="text-blue-800">メンテナンス履歴を追加</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="store" className="text-blue-800 font-medium">
+                      店舗
+                    </Label>
+                    <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                      <SelectTrigger className="border-blue-200 focus:border-blue-500 focus:ring-blue-500">
+                        <SelectValue placeholder="店舗を選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {stores.map((store) => (
+                          <SelectItem key={store.id} value={store.id.toString()}>
+                            {store.store_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="title" className="text-blue-800 font-medium">
+                      題名
+                    </Label>
+                    <Select value={title} onValueChange={setTitle}>
+                      <SelectTrigger className="border-blue-200 focus:border-blue-500 focus:ring-blue-500">
+                        <SelectValue placeholder="題名を選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {titleOptions.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="file" className="text-blue-800 font-medium">
+                      PDFファイル（任意）
+                    </Label>
+                    <Input
+                      id="file"
+                      type="file"
+                      accept=".pdf"
+                      onChange={(e) => setFile(e.target.files?.[0] || null)}
+                      className="border-blue-200 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                    {file && <p className="text-sm text-blue-600">選択済み: {file.name}</p>}
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                      キャンセル
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      disabled={isSubmitting || !title || !selectedStoreId}
+                    >
+                      {isSubmitting ? "登録中..." : "登録"}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="mb-4 p-3 bg-blue-50 rounded-lg">
@@ -320,6 +336,9 @@ export default function MaintenancePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* 画像生成ダイアログ */}
+      <MaintenanceImageGenerator isOpen={isImageGeneratorOpen} onClose={() => setIsImageGeneratorOpen(false)} />
     </div>
   )
 }
