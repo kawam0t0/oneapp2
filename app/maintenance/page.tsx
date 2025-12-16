@@ -46,29 +46,46 @@ export default function MaintenancePage() {
   const titleOptions = ["マンスリーメンテナンス結果報告", "定期メンテナンス結果報告"]
 
   useEffect(() => {
-    const fetchSession = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch("/api/auth/session")
-        if (res.ok) {
-          const data = await res.json()
-          setStoreName(data.store_name || "")
-          setStoreId(data.store_id || null)
-          setSelectedStoreId(data.store_id?.toString() || "")
-          setIsAdmin(data.store_id === 0)
+        // セッション取得
+        const sessionRes = await fetch("/api/auth/session")
+        if (!sessionRes.ok) {
+          console.error("Failed to fetch session")
+          setIsLoading(false)
+          return
+        }
+
+        const sessionData = await sessionRes.json()
+        const fetchedStoreName = sessionData.store_name || ""
+        const fetchedStoreId = sessionData.store_id ?? null
+        const fetchedIsAdmin = fetchedStoreId === 0
+
+        setStoreName(fetchedStoreName)
+        setStoreId(fetchedStoreId)
+        setSelectedStoreId(fetchedStoreId?.toString() || "")
+        setIsAdmin(fetchedIsAdmin)
+
+        // レコード取得
+        if (fetchedStoreId !== null) {
+          const recordsRes = await fetch(`/api/maintenance?storeId=${fetchedStoreId}`)
+          if (recordsRes.ok) {
+            const recordsData = await recordsRes.json()
+            setRecords(recordsData)
+          } else {
+            console.error("Failed to fetch records")
+          }
         }
       } catch (error) {
-        console.error("Failed to fetch session:", error)
+        console.error("Error fetching data:", error)
+      } finally {
+        setIsLoading(false)
       }
     }
-    fetchSession()
+
+    fetchData()
     fetchStores()
   }, [])
-
-  useEffect(() => {
-    if (storeId) {
-      fetchRecords()
-    }
-  }, [storeId])
 
   const fetchStores = async () => {
     try {
@@ -83,7 +100,10 @@ export default function MaintenancePage() {
   }
 
   const fetchRecords = async () => {
+    if (storeId === null) return
+
     try {
+      setIsLoading(true)
       const response = await fetch(`/api/maintenance?storeId=${storeId}`)
       if (response.ok) {
         const data = await response.json()
@@ -129,7 +149,6 @@ export default function MaintenancePage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
-    // 日本時間（JST、UTC+9）に変換
     const jstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000)
     return jstDate.toLocaleDateString("ja-JP", {
       year: "numeric",
@@ -250,7 +269,13 @@ export default function MaintenancePage() {
         <CardContent>
           <div className="mb-4 p-3 bg-blue-50 rounded-lg">
             <p className="text-sm text-blue-800">
-              現在の店舗: <span className="font-semibold">{storeName}</span>
+              {isAdmin ? (
+                <span className="font-semibold">全店舗の履歴を表示中</span>
+              ) : (
+                <>
+                  現在の店舗: <span className="font-semibold">{storeName}</span>
+                </>
+              )}
             </p>
           </div>
 
@@ -271,6 +296,7 @@ export default function MaintenancePage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      {isAdmin && <TableHead>店舗名</TableHead>}
                       <TableHead>題名</TableHead>
                       <TableHead>ファイル</TableHead>
                       <TableHead>登録日時</TableHead>
@@ -279,6 +305,7 @@ export default function MaintenancePage() {
                   <TableBody>
                     {records.map((record) => (
                       <TableRow key={record.id}>
+                        {isAdmin && <TableCell className="font-medium">{record.store_name || "-"}</TableCell>}
                         <TableCell className="font-medium">{record.title}</TableCell>
                         <TableCell>
                           {record.file_name ? (
@@ -306,6 +333,12 @@ export default function MaintenancePage() {
               <div className="md:hidden space-y-3">
                 {records.map((record) => (
                   <div key={record.id} className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    {isAdmin && record.store_name && (
+                      <div className="mb-2">
+                        <span className="text-xs text-gray-600">店舗: </span>
+                        <span className="text-sm font-medium text-gray-900">{record.store_name}</span>
+                      </div>
+                    )}
                     <h3 className="font-semibold text-gray-900 mb-2">{record.title}</h3>
                     <div className="space-y-2 text-sm">
                       <div>

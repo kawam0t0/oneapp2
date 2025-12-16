@@ -25,19 +25,32 @@ export async function GET(request: NextRequest) {
     }
 
     const conn = await getConnection()
-    const [rows] = await conn.execute(
-      `SELECT id, store_id, title, file_name, 
-       DATE_FORMAT(CONVERT_TZ(created_at, '+00:00', '+09:00'), '%Y-%m-%d %H:%i:%s') as created_at
-       FROM maintenance_records 
-       WHERE store_id = ? 
-       ORDER BY created_at DESC`,
-      [storeId],
-    )
+
+    let query: string
+    let params: any[]
+
+    if (storeId === "0") {
+      query = `SELECT m.id, m.store_id, s.store_name, m.title, m.file_name, 
+               DATE_FORMAT(CONVERT_TZ(m.created_at, '+00:00', '+09:00'), '%Y-%m-%d %H:%i:%s') as created_at
+               FROM maintenance_records m
+               LEFT JOIN stores s ON m.store_id = s.id
+               ORDER BY m.created_at DESC`
+      params = []
+    } else {
+      query = `SELECT id, store_id, title, file_name, 
+               DATE_FORMAT(CONVERT_TZ(created_at, '+00:00', '+09:00'), '%Y-%m-%d %H:%i:%s') as created_at
+               FROM maintenance_records 
+               WHERE store_id = ? 
+               ORDER BY created_at DESC`
+      params = [storeId]
+    }
+
+    const [rows] = await conn.execute(query, params)
     await conn.end()
 
     return NextResponse.json(rows)
   } catch (error) {
-    console.error("Error fetching maintenance records:", error)
+    console.error("Error:", error)
     return NextResponse.json({ error: "Failed to fetch maintenance records" }, { status: 500 })
   }
 }
