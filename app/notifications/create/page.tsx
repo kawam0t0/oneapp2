@@ -13,7 +13,7 @@ export default function CreateNotificationPage() {
   const router = useRouter()
   const [title, setTitle] = useState("")
   const [message, setMessage] = useState("")
-  const [imageUrl, setImageUrl] = useState("")
+  const [imageUrls, setImageUrls] = useState<string[]>([]) // 配列に変更
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
 
@@ -32,7 +32,11 @@ export default function CreateNotificationPage() {
       const res = await fetch("/api/notifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, message, image_url: imageUrl }),
+        body: JSON.stringify({
+          title,
+          message,
+          image_urls: imageUrls, // JSON.stringifyせずに配列のまま送信
+        }),
       })
 
       if (res.ok) {
@@ -81,8 +85,13 @@ export default function CreateNotificationPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">本文</label>
-              <RichTextEditor value={message} onChange={setMessage} imageUrl={imageUrl} onImageChange={setImageUrl} />
-              <p className="mt-2 text-xs text-gray-500">画像は5MB以下のファイルを添付できます。</p>
+              <RichTextEditor
+                value={message}
+                onChange={setMessage}
+                imageUrls={imageUrls}
+                onImagesChange={setImageUrls}
+              />
+              <p className="mt-2 text-xs text-gray-500">複数の画像を添付できます（各5MB以下）。</p>
             </div>
 
             <div className="flex gap-4">

@@ -20,7 +20,6 @@ export async function GET() {
   try {
     connection = await getConnection()
 
-    // 公開されているお知らせを新しい順に取得
     const [rows] = await connection.execute(
       `SELECT 
         id, 
@@ -35,9 +34,36 @@ export async function GET() {
       ORDER BY published_at DESC`,
     )
 
-    return NextResponse.json(rows)
+    console.log("[v0 API] Fetched news count:", (rows as any[]).length)
+
+    // image_urlをJSON配列としてパース
+    const newsWithParsedImages = (rows as any[]).map((row) => {
+      console.log(`[v0 API] News ID ${row.id} image_url type:`, typeof row.image_url)
+      console.log(`[v0 API] News ID ${row.id} image_url preview:`, row.image_url?.substring(0, 100))
+
+      let parsedImageUrl = null
+      if (row.image_url) {
+        try {
+          parsedImageUrl = typeof row.image_url === "string" ? JSON.parse(row.image_url) : row.image_url
+          console.log(
+            `[v0 API] News ID ${row.id} parsed image_url:`,
+            Array.isArray(parsedImageUrl) ? `Array(${parsedImageUrl.length})` : typeof parsedImageUrl,
+          )
+        } catch (e) {
+          console.error(`[v0 API] Failed to parse image_url for news ID ${row.id}:`, e)
+          parsedImageUrl = row.image_url
+        }
+      }
+
+      return {
+        ...row,
+        image_url: parsedImageUrl,
+      }
+    })
+
+    return NextResponse.json(newsWithParsedImages)
   } catch (error) {
-    console.error("Failed to fetch news:", error)
+    console.error("[v0 API] Failed to fetch news:", error)
     return NextResponse.json({ error: "Failed to fetch news" }, { status: 500 })
   } finally {
     if (connection) await connection.end()
@@ -49,7 +75,15 @@ export async function POST(request: NextRequest) {
   let connection
   try {
     const body = await request.json()
-    const { title, message, image_url } = body
+    const { title, message, image_urls } = body
+
+    console.log("[v0 API] Received news creation request")
+    console.log("[v0 API] Title:", title)
+    console.log("[v0 API] Image URLs count:", image_urls?.length || 0)
+    console.log(
+      "[v0 API] Image URLs preview:",
+      image_urls?.map((url: string) => url.substring(0, 50) + "..."),
+    )
 
     if (!title) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 })
@@ -57,18 +91,25 @@ export async function POST(request: NextRequest) {
 
     connection = await getConnection()
 
+    const imageUrlsJson = image_urls && image_urls.length > 0 ? JSON.stringify(image_urls) : null
+
+    console.log("[v0 API] Saving to DB, image_url JSON:", imageUrlsJson?.substring(0, 100) + "...")
+
     const [result] = await connection.execute(
       `INSERT INTO news (title, message, image_url, is_published, published_at) 
        VALUES (?, ?, ?, 1, NOW())`,
-      [title, message || "", image_url || null],
+      [title, message || "", imageUrlsJson],
     )
+
+    const insertId = (result as any).insertId
+    console.log("[v0 API] News created with ID:", insertId)
 
     return NextResponse.json({
       success: true,
-      id: (result as any).insertId,
+      id: insertId,
     })
   } catch (error) {
-    console.error("Failed to create news:", error)
+    console.error("[v0 API] Failed to create news:", error)
     return NextResponse.json({ error: "Failed to create news" }, { status: 500 })
   } finally {
     if (connection) await connection.end()

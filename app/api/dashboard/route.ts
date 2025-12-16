@@ -91,6 +91,10 @@ export async function GET(request: Request) {
 
     const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000)
     const todayStr = `${nowJST.getUTCFullYear()}-${String(nowJST.getUTCMonth() + 1).padStart(2, "0")}-${String(nowJST.getUTCDate()).padStart(2, "0")}`
+
+    // 前日の日付を計算
+    const yesterdayJST = new Date(nowJST.getTime() - 24 * 60 * 60 * 1000)
+    const yesterdayStr = `${yesterdayJST.getUTCFullYear()}-${String(yesterdayJST.getUTCMonth() + 1).padStart(2, "0")}-${String(yesterdayJST.getUTCDate()).padStart(2, "0")}`
     const currentDay = nowJST.getUTCDate()
 
     const connection = await getConnection()
@@ -175,6 +179,16 @@ export async function GET(request: Request) {
        GROUP BY store, details
        ORDER BY store, details`,
       [todayStr],
+    )
+
+    const [yesterdayRows] = await connection.execute(
+      `SELECT store, details, COUNT(*) as count 
+       FROM onetime 
+       WHERE date = ?
+       AND (card_entry_method IS NULL OR card_entry_method != 'KEYED')
+       GROUP BY store, details
+       ORDER BY store, details`,
+      [yesterdayStr],
     )
 
     const [monthlyOnetimeSales] = await connection.execute(
@@ -298,6 +312,7 @@ export async function GET(request: Request) {
 
     const monthlyData = aggregateData(monthlyRows as any[])
     const todayData = aggregateData(todayRows as any[])
+    const yesterdayData = aggregateData(yesterdayRows as any[]) // 前日データも集計
 
     const monthlyOnetimeSalesMap = new Map<string, number>()
     ;(monthlyOnetimeSales as any[]).forEach((row) => {
@@ -419,6 +434,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       monthly: monthlyData,
       today: todayData,
+      yesterday: yesterdayData, // 前日データを追加
       invoiceMonthly,
       storeSales,
       memberChanges, // 会員数増減データを追加

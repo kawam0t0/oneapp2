@@ -67,11 +67,12 @@ interface MemberChangeData {
 interface ApiResponse {
   monthly: StoreData[]
   today: StoreData[]
+  yesterday?: StoreData[] // 前日データを追加
   daily?: DailyData[]
   invoiceMonthly?: InvoiceMonthlyData[]
   storeCategories?: StoreCategoryData[]
   storeSales?: StoreSalesData[]
-  memberChanges?: MemberChangeData[] // 会員数増減を追加
+  memberChanges?: MemberChangeData[]
   error?: string
 }
 
@@ -153,6 +154,7 @@ export default function DashboardView() {
   const [selectedPeriod, setSelectedPeriod] = useState(getCurrentMonth())
   const [monthlyData, setMonthlyData] = useState<StoreData[]>([])
   const [todayData, setTodayData] = useState<StoreData[]>([])
+  const [yesterdayData, setYesterdayData] = useState<StoreData[]>([]) // 前日データのstate追加
   const [dailyData, setDailyData] = useState<DailyData[]>([])
   const [invoiceMonthlyData, setInvoiceMonthlyData] = useState<InvoiceMonthlyData[]>([])
   const [storeCategories, setStoreCategories] = useState<StoreCategoryData[]>([])
@@ -204,10 +206,11 @@ export default function DashboardView() {
       if (result.error || !result.monthly || !result.today) {
         setMonthlyData([])
         setTodayData([])
+        setYesterdayData([]) //
         setDailyData([])
         setInvoiceMonthlyData([])
         setStoreSales([])
-        setMemberChanges([]) //
+        setMemberChanges([])
         return
       }
 
@@ -215,6 +218,9 @@ export default function DashboardView() {
         (store: StoreData) => store.store && store.store !== "0" && store.store.trim() !== "",
       )
       const filteredToday = result.today.filter(
+        (store: StoreData) => store.store && store.store !== "0" && store.store.trim() !== "",
+      )
+      const filteredYesterday = (result.yesterday || []).filter(
         (store: StoreData) => store.store && store.store !== "0" && store.store.trim() !== "",
       )
 
@@ -231,17 +237,19 @@ export default function DashboardView() {
 
       setMonthlyData(sortByOrder(filteredMonthly))
       setTodayData(sortByOrder(filteredToday))
+      setYesterdayData(sortByOrder(filteredYesterday)) // 前日データをセット
       setDailyData(result.daily || [])
       setInvoiceMonthlyData(result.invoiceMonthly || [])
       setStoreSales(result.storeSales || [])
-      setMemberChanges(result.memberChanges || []) //
+      setMemberChanges(result.memberChanges || [])
     } catch (error) {
       setMonthlyData([])
       setTodayData([])
+      setYesterdayData([]) //
       setDailyData([])
       setInvoiceMonthlyData([])
       setStoreSales([])
-      setMemberChanges([]) //
+      setMemberChanges([])
     } finally {
       setLoading(false)
     }
@@ -335,6 +343,7 @@ export default function DashboardView() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {monthlyData.map((store, index) => {
                   const todayStore = todayData.find((s) => s.store === store.store)
+                  const yesterdayStore = yesterdayData.find((s) => s.store === store.store) // 前日データを取得
                   const percentage = monthlyTotal > 0 ? ((store.total / monthlyTotal) * 100).toFixed(1) : "0"
                   const sales = storeSales.find((s) => s.store === store.store)
                   const memberChange = memberChanges.find((m) => m.store === store.store)
@@ -380,9 +389,18 @@ export default function DashboardView() {
                           {/* 本日 */}
                           <div className="bg-green-50 rounded-xl p-3 border border-green-200">
                             <p className="text-xs text-green-700 mb-1 font-medium">本日</p>
-                            <div className="flex items-baseline gap-1 mb-2">
-                              <p className="text-2xl font-bold text-green-600">{todayStore?.total || 0}</p>
-                              <p className="text-xs text-green-600">台</p>
+                            <div className="mb-2">
+                              <div className="flex items-baseline gap-1">
+                                <p className="text-2xl font-bold text-green-600">{todayStore?.total || 0}</p>
+                                <p className="text-xs text-green-600">台</p>
+                              </div>
+                              <div className="flex items-center gap-1 mt-1">
+                                <span className="text-[10px] text-gray-400">前日:</span>
+                                <span className="text-sm font-semibold text-gray-600">
+                                  {yesterdayStore?.total || 0}
+                                </span>
+                                <span className="text-[10px] text-gray-500">台</span>
+                              </div>
                             </div>
                             {isAdmin && sales && (
                               <div className="border-t border-green-200 pt-2">
@@ -400,7 +418,7 @@ export default function DashboardView() {
 
                         {memberChange && (
                           <div className="mb-3 bg-gray-50 rounded-xl p-3 border border-gray-200">
-                            <p className="text-xs text-gray-600 mb-1 font-medium">会員数の増減（同日前月比）</p>
+                            <p className="text-xs text-gray-600 mb-1 font-medium">会員数の増減（前月比）</p>
                             <div className="flex items-center gap-2">
                               {memberChange.change > 0 ? (
                                 <>
