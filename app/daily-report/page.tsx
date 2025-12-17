@@ -412,13 +412,17 @@ export default function DailyReportPage() {
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-blue-600" />
-                所感(任意)
+                今日の所感
               </h3>
               <div>
+                <Label htmlFor="comments" className="text-gray-700 mb-2 block">
+                  本日の業務や気づいたことを記入してください
+                </Label>
                 <textarea
                   id="comments"
                   value={comments}
                   onChange={(e) => setComments(e.target.value)}
+                  placeholder="例：本日は天候が良く、来店客数が多かった。午後から混雑したため、スタッフを増員した。"
                   className="w-full min-h-[120px] p-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y text-gray-700 leading-relaxed"
                   rows={5}
                 />

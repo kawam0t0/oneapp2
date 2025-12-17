@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, FileText, Download, ArrowLeft, ImageIcon } from "lucide-react"
 import { MaintenanceImageGenerator } from "@/components/maintenance-image-generator"
+import { SingleStoreMaintenanceImageGenerator } from "@/components/single-store-maintenance-image-generator"
 
 interface MaintenanceRecord {
   id: number
@@ -41,6 +42,7 @@ export default function MaintenancePage() {
   const [file, setFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isImageGeneratorOpen, setIsImageGeneratorOpen] = useState(false)
+  const [isSingleStoreImageGeneratorOpen, setIsSingleStoreImageGeneratorOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
 
   const titleOptions = ["マンスリーメンテナンス結果報告", "定期メンテナンス結果報告"]
@@ -180,9 +182,18 @@ export default function MaintenancePage() {
             <CardTitle className="text-xl md:text-2xl font-bold">メンテナンス履歴</CardTitle>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-            {isAdmin && (
+            {isAdmin ? (
               <Button
                 onClick={() => setIsImageGeneratorOpen(true)}
+                variant="outline"
+                className="border-blue-600 text-blue-600 hover:bg-blue-50 w-full sm:w-auto"
+              >
+                <ImageIcon className="w-4 h-4 mr-2" />
+                メンテ画像生成
+              </Button>
+            ) : (
+              <Button
+                onClick={() => setIsSingleStoreImageGeneratorOpen(true)}
                 variant="outline"
                 className="border-blue-600 text-blue-600 hover:bg-blue-50 w-full sm:w-auto"
               >
@@ -370,8 +381,17 @@ export default function MaintenancePage() {
         </CardContent>
       </Card>
 
-      {/* 画像生成ダイアログ */}
-      <MaintenanceImageGenerator isOpen={isImageGeneratorOpen} onClose={() => setIsImageGeneratorOpen(false)} />
+      {isAdmin && (
+        <MaintenanceImageGenerator isOpen={isImageGeneratorOpen} onClose={() => setIsImageGeneratorOpen(false)} />
+      )}
+
+      {!isAdmin && (
+        <SingleStoreMaintenanceImageGenerator
+          isOpen={isSingleStoreImageGeneratorOpen}
+          onClose={() => setIsSingleStoreImageGeneratorOpen(false)}
+          storeName={storeName}
+        />
+      )}
     </div>
   )
 }

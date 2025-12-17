@@ -94,12 +94,12 @@ const menuItems = [
     icon: ClipboardList,
     external: true,
   },
-  //{
-    //name: "日報",
-    //href: "/daily-report",
-    //icon: ClipboardList,
-    //external: false,
-  //},
+  {
+    name: "(開発中)",
+    href: "/daily-report",
+    icon: ClipboardList,
+    external: false,
+  },
   {
     name: "備品発注",
     href: "https://kawam0t0-orderwebapp20250502.vercel.app/login",
