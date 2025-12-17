@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import mysql from "mysql2/promise"
 import { cookies } from "next/headers"
-// import { appendToDailyReportSheet } from "@/lib/google-sheets"
+import { appendToDailyReportSheet } from "@/lib/google-sheets"
 
 const getConnection = async () => {
   return await mysql.createConnection({
@@ -14,6 +14,21 @@ const getConnection = async () => {
       rejectUnauthorized: false,
     },
   })
+}
+
+const STORE_GAS_WEBHOOKS: Record<string, string> = {
+  足利緑町店:
+    "https://script.google.com/macros/s/AKfycbyH_IGw6Eh3g0AJS426BVpuubITdM-6dML9cB05uuX4FOhZP80U5nwpBYU1RMKgzZ9-/exec",
+  伊勢崎韮塚店:
+    "https://script.google.com/macros/s/AKfycbyRIadsTcLoG9TNlGbOJe0ts0hISQoKq3_l35PwGl1YwDf_x6ffTUNUOufD61SrMb8zVg/exec",
+  太田新田店:
+    "https://script.google.com/macros/s/AKfycbx-BNjjvYmoYk2jB7ay8T-FW6TQA4_cP1Oao5QG0KTIHJeELu9vaOsO7So1ZeHgaiL1/exec",
+  新前橋店:
+    "https://script.google.com/macros/s/AKfycbxHY1jxdddvUboCOW-plKsV5Aq-MVYcWq701D64UPc723usyDVUaJzV-YLvTAWTcSOflg/exec",
+  高崎棟高店:
+    "https://script.google.com/macros/s/AKfycbzet5L_wh-JJCurr-VNhRW9fk-K6LbIKHsGziSs7f2RVuxS7KQQfvH7LbvaFC9jW46DyQ/exec",
+  前橋50号店:
+    "https://script.google.com/macros/s/AKfycbySpi2lwyQx5Vcc_VgytgrjLAvSMP-6W54j2-Aual16HTRMpJlEkB7qMCBJzpTiGy5eHA/exec",
 }
 
 // 今日のアイテム別データ数を取得
@@ -87,13 +102,22 @@ export async function GET(request: Request) {
     console.log("[v0 API] Item data (split by comma):", itemData)
     console.log("[v0 API] Total count:", totalCount)
 
-    return NextResponse.json({
-      storeName,
-      date: todayStr,
-      totalCount,
-      itemData,
-      existingReport: (existingReport as any[])[0] || null,
-    })
+    return NextResponse.json(
+      {
+        storeName,
+        date: todayStr,
+        totalCount,
+        itemData,
+        existingReport: (existingReport as any[])[0] || null,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
+    )
   } catch (error) {
     console.error("[v0 API] Error fetching daily report data:", error)
     return NextResponse.json({ error: "データ取得エラー", details: String(error) }, { status: 500 })
@@ -117,7 +141,6 @@ export async function POST(request: Request) {
 
     const connection = await getConnection()
 
-    // UPSERTで保存（既存があれば更新、なければ挿入）
     await connection.execute(
       `INSERT INTO daily_reports (store_name, report_date, weather, total_count, cash_sales, item_data, comments)
        VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -135,8 +158,10 @@ export async function POST(request: Request) {
 
     console.log("[v0 API] Daily report saved successfully to database")
 
-    /*
     try {
+      console.log("[v0 API] ========== Google Sheets書き込み開始 ==========")
+      console.log("[v0 API] 環境変数GOOGLE_SERVICE_ACCOUNT_KEY存在:", !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY)
+
       await appendToDailyReportSheet({
         storeName,
         date,
@@ -146,12 +171,52 @@ export async function POST(request: Request) {
         itemData,
         comments,
       })
-      console.log("[v0 API] Daily report saved successfully to Google Sheets")
+      console.log("[v0 API] ========== Google Sheets書き込み成功 ==========")
     } catch (sheetsError) {
-      console.error("[v0 API] Error saving to Google Sheets (non-critical):", sheetsError)
-      // Google Sheetsへの保存が失敗してもDBには保存されているのでエラーにしない
+      console.error("[v0 API] ========== Google Sheetsエラー ==========")
+      console.error("[v0 API] Error saving to Google Sheets:", sheetsError)
+      console.error("[v0 API] Error message:", (sheetsError as Error).message)
+      console.error("[v0 API] Error stack:", (sheetsError as Error).stack)
     }
-    */
+
+    try {
+      const cleanStoreName = storeName.replace(/SPLASH'N'GO!/g, "").trim()
+      const storeGasWebhookUrl = STORE_GAS_WEBHOOKS[cleanStoreName]
+
+      console.log("[v0 API] ========== GAS Webhook呼び出し開始 ==========")
+      console.log("[v0 API] 元の店舗名:", storeName)
+      console.log("[v0 API] クリーンな店舗名:", cleanStoreName)
+      console.log("[v0 API] 店舗別GAS URL:", storeGasWebhookUrl)
+
+      if (storeGasWebhookUrl) {
+        console.log("[v0 API] 店舗別GAS Webhookを実行中...")
+
+        const storeGasResponse = await fetch(storeGasWebhookUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            storeName,
+            date,
+            trigger: "daily_report_submitted",
+          }),
+        })
+
+        const storeGasResult = await storeGasResponse.json()
+
+        if (storeGasResult.success) {
+          console.log("[v0 API] ========== 店舗別GAS実行成功：Google Chat通知送信完了 ==========")
+        } else {
+          console.error("[v0 API] 店舗別GAS実行エラー:", storeGasResult.error)
+        }
+      } else {
+        console.log(`[v0 API] 店舗「${cleanStoreName}」のGAS WebhookURLが設定されていません。`)
+      }
+    } catch (gasError) {
+      console.error("[v0 API] ========== GAS呼び出しエラー ==========")
+      console.error("[v0 API] Error calling GAS webhook:", gasError)
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

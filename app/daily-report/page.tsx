@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Check, Store, Calendar, Cloud, Car, DollarSign, Package, MessageSquare } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
 
 const WEATHER_OPTIONS = ["晴", "曇", "雨", "晴/曇", "曇/雨", "晴/雨"]
 
@@ -24,8 +25,10 @@ const WEATHER_ICONS: { [key: string]: string } = {
 export default function DailyReportPage() {
   const router = useRouter()
   const { session } = useAuth()
+  const { toast } = useToast()
   const [step, setStep] = useState<"input" | "confirm">("input")
   const [loading, setLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
 
@@ -41,7 +44,12 @@ export default function DailyReportPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch("/api/daily-report")
+        const response = await fetch("/api/daily-report", {
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        })
         const data = await response.json()
 
         console.log("[v0] Fetched daily report data:", data)
@@ -51,12 +59,9 @@ export default function DailyReportPage() {
         setTotalCount(data.totalCount.toString())
         setItemData(data.itemData)
 
-        // 既存の日報があれば自動入力
         if (data.existingReport) {
           setWeather(data.existingReport.weather || "")
           setCashSales(data.existingReport.cash_sales || "")
-          setTotalCount(data.existingReport.total_count.toString())
-          setItemData(JSON.parse(data.existingReport.item_data || "{}"))
           setComments(data.existingReport.comments || "")
         }
 
@@ -78,6 +83,7 @@ export default function DailyReportPage() {
   }
 
   const handleSubmit = async () => {
+    setIsSubmitting(true)
     try {
       const response = await fetch("/api/daily-report", {
         method: "POST",
@@ -98,10 +104,12 @@ export default function DailyReportPage() {
         router.push("/")
       } else {
         alert("送信に失敗しました")
+        setIsSubmitting(false)
       }
     } catch (error) {
       console.error("[v0] Error submitting report:", error)
       alert("送信エラーが発生しました")
+      setIsSubmitting(false)
     }
   }
 
@@ -127,6 +135,12 @@ export default function DailyReportPage() {
   const handleNext = () => {
     if (validateForm()) {
       setStep("confirm")
+    } else {
+      toast({
+        title: "入力エラー",
+        description: "必要事項を入力してください",
+        variant: "destructive",
+      })
     }
   }
 
@@ -258,16 +272,24 @@ export default function DailyReportPage() {
                 <Button
                   variant="outline"
                   onClick={() => setStep("input")}
+                  disabled={isSubmitting}
                   className="flex-1 h-12 border-2 hover:bg-gray-50"
                 >
                   戻る
                 </Button>
                 <Button
                   onClick={handleSubmit}
-                  className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg"
+                  disabled={isSubmitting}
+                  className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Check className="h-5 w-5 mr-2" />
-                  送信
+                  {isSubmitting ? (
+                    <>送信中...</>
+                  ) : (
+                    <>
+                      <Check className="h-5 w-5 mr-2" />
+                      送信
+                    </>
+                  )}
                 </Button>
               </div>
             </CardContent>
@@ -412,17 +434,14 @@ export default function DailyReportPage() {
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-blue-600" />
-                今日の所感
+                所感(任意)
               </h3>
               <div>
-                <Label htmlFor="comments" className="text-gray-700 mb-2 block">
-                  本日の業務や気づいたことを記入してください
-                </Label>
+                <Label htmlFor="comments" className="text-gray-700 mb-2 block"></Label>
                 <textarea
                   id="comments"
                   value={comments}
                   onChange={(e) => setComments(e.target.value)}
-                  placeholder="例：本日は天候が良く、来店客数が多かった。午後から混雑したため、スタッフを増員した。"
                   className="w-full min-h-[120px] p-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y text-gray-700 leading-relaxed"
                   rows={5}
                 />
