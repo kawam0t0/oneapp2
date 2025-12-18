@@ -480,29 +480,37 @@ export default function CalendarPage() {
         <div className="bg-white rounded-xl md:rounded-2xl shadow-lg border-2 border-blue-200 p-3 md:p-4 mb-4 md:mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1 md:gap-2">
-              <button onClick={handlePrevMonth} className="p-1.5 md:p-2 hover:bg-blue-100 rounded-lg transition-colors">
-                <ChevronLeft className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
+              <button
+                onClick={handlePrevMonth}
+                className="p-1.5 md:p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="前月"
+              >
+                <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
               </button>
-              <button onClick={handleNextMonth} className="p-1.5 md:p-2 hover:bg-blue-100 rounded-lg transition-colors">
-                <ChevronRight className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
+              <button
+                onClick={handleNextMonth}
+                className="p-1.5 md:p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="次月"
+              >
+                <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
               </button>
               <button
                 onClick={handleToday}
-                className="px-2 md:px-3 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                className="px-2 py-1 md:px-3 md:py-1.5 bg-blue-600 text-white text-xs md:text-sm rounded-lg hover:bg-blue-700 transition-colors"
               >
                 今日
               </button>
             </div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg md:text-xl lg:text-2xl font-bold text-gray-900">
+            <div className="flex items-center gap-1.5 md:gap-2 flex-1 justify-center">
+              <h2 className="text-base md:text-xl lg:text-2xl font-bold text-gray-900 whitespace-nowrap">
                 {year}年 {month + 1}月
               </h2>
               {MONTHLY_LABELS[month + 1] && (
-                <div className="flex items-center gap-1 md:gap-1.5">
+                <div className="flex items-center gap-0.5 md:gap-1.5">
                   {MONTHLY_LABELS[month + 1].map((label, index) => (
                     <span
                       key={index}
-                      className={`px-1.5 md:px-2 py-0.5 md:py-1 text-xs md:text-sm font-semibold rounded ${label.color}`}
+                      className={`px-1 md:px-2 py-0.5 md:py-1 text-[10px] md:text-sm font-semibold rounded whitespace-nowrap ${label.color}`}
                     >
                       {label.text}
                     </span>
@@ -511,7 +519,7 @@ export default function CalendarPage() {
               )}
             </div>
             {/* 右側にスペースを確保して中央揃えに見せる */}
-            <div className="w-[80px] md:w-[140px]"></div>
+            <div className="w-[70px] md:w-[140px]"></div>
           </div>
         </div>
 
@@ -522,7 +530,7 @@ export default function CalendarPage() {
             {weekDays.map((day, index) => (
               <div
                 key={day}
-                className={`py-2 md:py-3 text-center font-bold text-xs md:text-sm ${
+                className={`py-2 md:py-3 text-center font-bold text-sm md:text-sm ${
                   index === 0 ? "text-red-200" : index === 6 ? "text-blue-200" : ""
                 }`}
               >
