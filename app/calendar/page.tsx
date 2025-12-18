@@ -27,6 +27,25 @@ const STORE_COLOR_MAP: { [key: string]: string } = {
   太田新田: "#06b6d4",
 }
 
+const MONTHLY_LABELS: Record<number, Array<{ text: string; color: string }>> = {
+  12: [
+    { text: "HPB", color: "text-blue-600 bg-blue-100" },
+    { text: "HPO", color: "text-green-600 bg-green-100" },
+    { text: "RCO", color: "text-purple-600 bg-purple-100" },
+  ],
+  3: [
+    { text: "HPO", color: "text-green-600 bg-green-100" },
+    { text: "DSP", color: "text-orange-600 bg-orange-100" },
+    { text: "COMP", color: "text-red-600 bg-red-100" },
+  ],
+  6: [{ text: "HPO", color: "text-green-600 bg-green-100" }],
+  9: [
+    { text: "HPO", color: "text-green-600 bg-green-100" },
+    { text: "DSP", color: "text-orange-600 bg-orange-100" },
+    { text: "COMP", color: "text-red-600 bg-red-100" },
+  ],
+}
+
 // 第N月曜日を計算
 function getNthMondayOfMonth(year: number, month: number, n: number): number {
   const firstDay = new Date(year, month - 1, 1)
@@ -474,9 +493,23 @@ export default function CalendarPage() {
                 今日
               </button>
             </div>
-            <h2 className="text-lg md:text-xl lg:text-2xl font-bold text-gray-900">
-              {year}年 {month + 1}月
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg md:text-xl lg:text-2xl font-bold text-gray-900">
+                {year}年 {month + 1}月
+              </h2>
+              {MONTHLY_LABELS[month + 1] && (
+                <div className="flex items-center gap-1 md:gap-1.5">
+                  {MONTHLY_LABELS[month + 1].map((label, index) => (
+                    <span
+                      key={index}
+                      className={`px-1.5 md:px-2 py-0.5 md:py-1 text-xs md:text-sm font-semibold rounded ${label.color}`}
+                    >
+                      {label.text}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
             {/* 右側にスペースを確保して中央揃えに見せる */}
             <div className="w-[80px] md:w-[140px]"></div>
           </div>
