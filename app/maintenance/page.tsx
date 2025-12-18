@@ -11,9 +11,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, FileText, Download, ArrowLeft, ImageIcon } from "lucide-react"
+import { Plus, FileText, Download, ArrowLeft, ImageIcon, Trash2 } from "lucide-react"
 import { MaintenanceImageGenerator } from "@/components/maintenance-image-generator"
 import { SingleStoreMaintenanceImageGenerator } from "@/components/single-store-maintenance-image-generator"
+import { useToast } from "@/hooks/use-toast"
 
 interface MaintenanceRecord {
   id: number
@@ -46,6 +47,42 @@ export default function MaintenancePage() {
   const [isAdmin, setIsAdmin] = useState(false)
 
   const titleOptions = ["マンスリーメンテナンス結果報告", "定期メンテナンス結果報告"]
+
+  const { toast } = useToast()
+
+  const handleDelete = async (recordId: number) => {
+    if (!confirm("このメンテナンス履歴を削除してもよろしいですか？")) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/maintenance?id=${recordId}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        toast({
+          title: "削除成功",
+          description: "メンテナンス履歴を削除しました",
+        })
+        fetchRecords()
+      } else {
+        const errorData = await response.json()
+        toast({
+          title: "削除失敗",
+          description: errorData.error || "削除に失敗しました",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error deleting record:", error)
+      toast({
+        title: "エラー",
+        description: "削除中にエラーが発生しました",
+        variant: "destructive",
+      })
+    }
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -311,6 +348,7 @@ export default function MaintenancePage() {
                       <TableHead>題名</TableHead>
                       <TableHead>ファイル</TableHead>
                       <TableHead>登録日時</TableHead>
+                      {isAdmin && <TableHead className="text-right">操作</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -334,6 +372,18 @@ export default function MaintenancePage() {
                           )}
                         </TableCell>
                         <TableCell>{formatDate(record.created_at)}</TableCell>
+                        {isAdmin && (
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(record.id)}
+                              className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -344,13 +394,27 @@ export default function MaintenancePage() {
               <div className="md:hidden space-y-3">
                 {records.map((record) => (
                   <div key={record.id} className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                    {isAdmin && record.store_name && (
-                      <div className="mb-2">
-                        <span className="text-xs text-gray-600">店舗: </span>
-                        <span className="text-sm font-medium text-gray-900">{record.store_name}</span>
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1">
+                        {isAdmin && record.store_name && (
+                          <div className="mb-2">
+                            <span className="text-xs text-gray-600">店舗: </span>
+                            <span className="text-sm font-medium text-gray-900">{record.store_name}</span>
+                          </div>
+                        )}
+                        <h3 className="font-semibold text-gray-900 mb-2">{record.title}</h3>
                       </div>
-                    )}
-                    <h3 className="font-semibold text-gray-900 mb-2">{record.title}</h3>
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(record.id)}
+                          className="text-red-600 hover:text-red-800 hover:bg-red-50 ml-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
                     <div className="space-y-2 text-sm">
                       <div>
                         <span className="text-gray-600">ファイル: </span>
