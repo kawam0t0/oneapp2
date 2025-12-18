@@ -547,13 +547,13 @@ export default function CalendarPage() {
                 <div
                   key={index}
                   onClick={() => dayInfo.isCurrentMonth && handleDateClick(dayInfo.date)}
-                  className={`min-h-[80px] sm:min-h-[100px] md:min-h-[120px] p-0.5 sm:p-1 border-b border-r border-gray-100 cursor-pointer transition-colors ${
+                  className={`min-h-[100px] sm:min-h-[120px] md:min-h-[140px] p-1 sm:p-2 border-b border-r border-gray-100 cursor-pointer transition-colors ${
                     !dayInfo.isCurrentMonth ? "bg-gray-50 text-gray-400" : isClosed ? "bg-gray-100" : "hover:bg-blue-50"
                   }`}
                 >
                   <div className="flex flex-col h-full">
                     <span
-                      className={`inline-flex items-center justify-center w-6 h-6 md:w-7 md:h-7 text-xs md:text-sm font-medium rounded-full mb-0.5 md:mb-1 ${
+                      className={`inline-flex items-center justify-center w-7 h-7 md:w-8 md:h-8 text-sm md:text-base font-medium rounded-full mb-1 md:mb-2 ${
                         isToday
                           ? "bg-blue-600 text-white"
                           : dayOfWeek === 0
@@ -565,21 +565,19 @@ export default function CalendarPage() {
                     >
                       {dayInfo.day}
                     </span>
-                    <div className="flex-1 space-y-0.5 md:space-y-1 overflow-hidden">
-                      {dayEvents.slice(0, 2).map((event, eventIndex) => (
+                    <div className="flex-1 space-y-1 overflow-hidden">
+                      {dayEvents.slice(0, 3).map((event, eventIndex) => (
                         <div
                           key={eventIndex}
-                          className="text-[10px] sm:text-xs px-0.5 sm:px-1 py-0.5 rounded truncate text-white font-medium"
+                          className="text-xs sm:text-sm px-1 sm:px-2 py-1 rounded text-white font-medium whitespace-nowrap overflow-hidden text-ellipsis"
                           style={{ backgroundColor: event.color }}
                           title={event.store_name ? `${event.store_name} ${event.title}` : event.title}
                         >
                           {getEventDisplayTitle(event)}
                         </div>
                       ))}
-                      {dayEvents.length > 2 && (
-                        <div className="text-[9px] sm:text-xs text-gray-500 px-0.5 sm:px-1">
-                          +{dayEvents.length - 2}
-                        </div>
+                      {dayEvents.length > 3 && (
+                        <div className="text-xs text-gray-500 px-1 sm:px-2 font-medium">+{dayEvents.length - 3}</div>
                       )}
                     </div>
                   </div>
