@@ -314,13 +314,13 @@ export default function DashboardView() {
                     }}
                     variant="outline"
                     size="sm"
-                    className="border-white/20 bg-white/10 text-white hover:bg-white/20"
+                    className="w-auto self-start border-white/20 bg-white/10 text-white hover:bg-white/20 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2"
                   >
-                    <RefreshCw className="mr-2 h-4 w-4" />
+                    <RefreshCw className="mr-1.5 h-3 w-3 sm:h-4 sm:w-4" />
                     更新
                   </Button>
                   <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                    <SelectTrigger className="border-2 border-blue-300/30 bg-white text-gray-900 font-semibold shadow-md">
+                    <SelectTrigger className="border-2 border-blue-300/30 bg-white text-gray-900 font-semibold shadow-md text-sm sm:text-base">
                       <SelectValue placeholder="期間を選択" />
                     </SelectTrigger>
                     <SelectContent>
