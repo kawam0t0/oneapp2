@@ -144,6 +144,22 @@ export default function DailyReportPage() {
     }
   }
 
+  const getMissingFields = () => {
+    const missing: string[] = []
+
+    if (!weather) {
+      missing.push("天気")
+    }
+    if (!totalCount || totalCount === "0") {
+      missing.push("総台数")
+    }
+    if (!cashSales) {
+      missing.push("現金売上")
+    }
+
+    return missing
+  }
+
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -454,6 +470,17 @@ export default function DailyReportPage() {
             >
               確認画面へ
             </Button>
+
+            {getMissingFields().length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
+                <p className="text-red-700 text-sm font-medium mb-2">以下の必須項目が未入力です：</p>
+                <ul className="list-disc list-inside text-red-600 text-sm space-y-1">
+                  {getMissingFields().map((field) => (
+                    <li key={field}>{field}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

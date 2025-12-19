@@ -31,6 +31,8 @@ const STORE_GAS_WEBHOOKS: Record<string, string> = {
     "https://script.google.com/macros/s/AKfycbySpi2lwyQx5Vcc_VgytgrjLAvSMP-6W54j2-Aual16HTRMpJlEkB7qMCBJzpTiGy5eHA/exec",
 }
 
+const M50_LINE_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwquB2hNkzW4yIH7XmVnSolfGbNzmFJvlVgD_FeZK0z73NpEqbKWIGQduAFgG7u9n3b/exec"
+
 // 今日のアイテム別データ数を取得
 export async function GET(request: Request) {
   try {
@@ -212,6 +214,34 @@ export async function POST(request: Request) {
         }
       } else {
         console.log(`[v0 API] 店舗「${cleanStoreName}」のGAS WebhookURLが設定されていません。`)
+      }
+
+      if (cleanStoreName === "前橋50号店" && M50_LINE_WEBHOOK_URL) {
+        console.log("[v0 API] 前橋50号店専用LINE通知GASを実行中...")
+
+        try {
+          const m50LineResponse = await fetch(M50_LINE_WEBHOOK_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              storeName,
+              date,
+              trigger: "daily_report_submitted",
+            }),
+          })
+
+          const m50LineResult = await m50LineResponse.json()
+
+          if (m50LineResult.success) {
+            console.log("[v0 API] ========== 前橋50号店LINE通知送信完了 ==========")
+          } else {
+            console.error("[v0 API] 前橋50号店LINE通知エラー:", m50LineResult.error)
+          }
+        } catch (m50Error) {
+          console.error("[v0 API] 前橋50号店LINE通知GAS呼び出しエラー:", m50Error)
+        }
       }
     } catch (gasError) {
       console.error("[v0 API] ========== GAS呼び出しエラー ==========")
