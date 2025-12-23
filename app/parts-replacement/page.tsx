@@ -46,12 +46,12 @@ const POSITIONS = [
   { value: "運転席", label: "運転席" },
 ]
 
-interface PartItem {
+interface PartRow {
   id: string
   position: "助手席" | "運転席" | ""
   partCategory: string
   partName: string
-  quantity: string
+  quantity: number
   notes: string
 }
 
@@ -66,13 +66,13 @@ export default function PartsReplacementPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false) // Declare setIsAdmin here
 
-  const [partItems, setPartItems] = useState<PartItem[]>([
+  const [partRows, setPartRows] = useState<PartRow[]>([
     {
       id: crypto.randomUUID(),
       position: "",
       partCategory: "",
       partName: "",
-      quantity: "1",
+      quantity: 1,
       notes: "",
     },
   ])
@@ -84,6 +84,7 @@ export default function PartsReplacementPage() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>("")
   const [showWarrantyOnly, setShowWarrantyOnly] = useState(false)
   const [replacedAt, setReplacedAt] = useState<string>(new Date().toISOString().split("T")[0])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { toast } = useToast()
 
@@ -200,8 +201,8 @@ export default function PartsReplacementPage() {
       return
     }
 
-    for (const item of partItems) {
-      if (!item.partCategory || (item.partCategory === "その他" && !item.partName)) {
+    for (const row of partRows) {
+      if (!row.partCategory || (row.partCategory === "その他" && !row.partName)) {
         toast({
           title: "エラー",
           description: "全ての部品のカテゴリを入力してください",
@@ -211,7 +212,7 @@ export default function PartsReplacementPage() {
       }
     }
 
-    setIsLoading(true)
+    setIsSubmitting(true)
     try {
       const response = await fetch("/api/parts-replacement", {
         method: "POST",
@@ -221,12 +222,12 @@ export default function PartsReplacementPage() {
         body: JSON.stringify({
           storeId: Number.parseInt(selectedStoreId),
           replacedAt,
-          parts: partItems.map((item) => ({
-            position: item.position,
-            partCategory: item.partCategory,
-            partName: item.partCategory === "その他" ? item.partName : item.partCategory,
-            quantity: Number.parseInt(item.quantity) || 1,
-            notes: item.notes.trim() || null,
+          parts: partRows.map((row) => ({
+            position: row.position,
+            partCategory: row.partCategory,
+            partName: row.partCategory === "その他" ? row.partName : row.partCategory,
+            quantity: row.quantity || 1,
+            notes: row.notes.trim() || null,
           })),
         }),
       })
@@ -234,15 +235,15 @@ export default function PartsReplacementPage() {
       if (response.ok) {
         toast({
           title: "登録成功",
-          description: `${partItems.length}件の部品交換履歴を登録しました`,
+          description: `${partRows.length}件の部品交換履歴を登録しました`,
         })
-        setPartItems([
+        setPartRows([
           {
             id: crypto.randomUUID(),
             position: "",
             partCategory: "",
             partName: "",
-            quantity: "1",
+            quantity: 1,
             notes: "",
           },
         ])
@@ -265,7 +266,7 @@ export default function PartsReplacementPage() {
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -312,22 +313,22 @@ export default function PartsReplacementPage() {
     })
   }
 
-  const addPartItem = () => {
-    setPartItems([
-      ...partItems,
+  const addPartRow = () => {
+    setPartRows([
+      ...partRows,
       {
         id: crypto.randomUUID(),
         position: "",
         partCategory: "",
         partName: "",
-        quantity: "1",
+        quantity: 1,
         notes: "",
       },
     ])
   }
 
-  const removePartItem = (id: string) => {
-    if (partItems.length === 1) {
+  const removePartRow = (id: string) => {
+    if (partRows.length === 1) {
       toast({
         title: "エラー",
         description: "最低1つの部品が必要です",
@@ -335,18 +336,18 @@ export default function PartsReplacementPage() {
       })
       return
     }
-    setPartItems(partItems.filter((item) => item.id !== id))
+    setPartRows(partRows.filter((row) => row.id !== id))
   }
 
-  const updatePartItem = (id: string, field: keyof PartItem, value: string) => {
-    setPartItems(
-      partItems.map((item) =>
-        item.id === id
+  const updatePartRow = (id: string, field: keyof PartRow, value: string | number) => {
+    setPartRows(
+      partRows.map((row) =>
+        row.id === id
           ? {
-              ...item,
+              ...row,
               [field]: value,
             }
-          : item,
+          : row,
       ),
     )
   }
@@ -375,12 +376,12 @@ export default function PartsReplacementPage() {
                 部品交換を報告
               </Button>
             </DialogTrigger>
-            <DialogContent className="border-t-4 border-t-blue-600 max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="border-t-4 border-t-blue-600 max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader className="bg-blue-50 -mx-6 -mt-6 px-6 py-4 rounded-t-lg">
                 <DialogTitle className="text-blue-800">部品交換履歴を追加</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-6 pt-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div className="grid grid-cols-1 gap-4 p-4 bg-gray-50 rounded-lg">
                   <div className="space-y-2">
                     <Label htmlFor="store" className="text-blue-800 font-medium">
                       店舗 <span className="text-red-500">*</span>
@@ -414,131 +415,138 @@ export default function PartsReplacementPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <Label className="text-lg font-semibold text-blue-800">交換部品</Label>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-blue-800">交換部品</h3>
                     <Button
                       type="button"
+                      onClick={addPartRow}
                       variant="outline"
                       size="sm"
-                      onClick={addPartItem}
-                      className="text-blue-600 border-blue-200 hover:bg-blue-50 bg-transparent"
+                      className="border-blue-500 text-blue-600 hover:bg-blue-50 bg-transparent"
                     >
                       <Plus className="w-4 h-4 mr-1" />
                       部品を追加
                     </Button>
                   </div>
 
-                  {partItems.map((item, index) => (
-                    <Card key={item.id} className="border-blue-200">
-                      <CardHeader className="pb-3">
-                        <div className="flex justify-between items-center">
-                          <CardTitle className="text-sm font-medium text-gray-700">部品 #{index + 1}</CardTitle>
-                          {partItems.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removePartItem(item.id)}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="grid grid-cols-2 gap-2">
-                          <Label className="text-sm text-gray-600">位置</Label>
-                          <div className="grid grid-cols-2 gap-2 col-span-2">
-                            {POSITIONS.map((pos) => (
-                              <Button
-                                key={pos.value}
-                                type="button"
-                                size="sm"
-                                variant={item.position === pos.value ? "default" : "outline"}
-                                className={
-                                  item.position === pos.value
-                                    ? "bg-blue-600 hover:bg-blue-700"
-                                    : "border-blue-200 hover:bg-blue-50"
-                                }
-                                onClick={() => updatePartItem(item.id, "position", pos.value)}
-                              >
-                                {pos.label}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm text-gray-600">
-                            部品カテゴリ <span className="text-red-500">*</span>
-                          </Label>
-                          <Select
-                            value={item.partCategory}
-                            onValueChange={(value) => updatePartItem(item.id, "partCategory", value)}
+                  {partRows.map((row, index) => (
+                    <div key={row.id} className="border border-gray-200 rounded-lg p-4 space-y-4 bg-white relative">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-gray-700">部品 #{index + 1}</h4>
+                        {partRows.length > 1 && (
+                          <Button
+                            type="button"
+                            onClick={() => removePartRow(row.id)}
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
-                            <SelectTrigger className="border-blue-200 focus:border-blue-500">
-                              <SelectValue placeholder="カテゴリを選択" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {PART_CATEGORIES.map((category) => (
-                                <SelectItem key={category.value} value={category.value}>
-                                  {category.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {item.partCategory === "その他" && (
-                          <div className="space-y-2">
-                            <Label className="text-sm text-gray-600">
-                              部品名 <span className="text-red-500">*</span>
-                            </Label>
-                            <Input
-                              value={item.partName}
-                              onChange={(e) => updatePartItem(item.id, "partName", e.target.value)}
-                              placeholder="部品名を入力"
-                              className="border-blue-200 focus:border-blue-500"
-                            />
-                          </div>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         )}
+                      </div>
 
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">位置</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            type="button"
+                            onClick={() => updatePartRow(row.id, "position", "助手席")}
+                            variant={row.position === "助手席" ? "default" : "outline"}
+                            className={`w-full text-sm ${
+                              row.position === "助手席" ? "bg-blue-600 hover:bg-blue-700" : "border-gray-300"
+                            }`}
+                          >
+                            助手席
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => updatePartRow(row.id, "position", "運転席")}
+                            variant={row.position === "運転席" ? "default" : "outline"}
+                            className={`w-full text-sm ${
+                              row.position === "運転席" ? "bg-blue-600 hover:bg-blue-700" : "border-gray-300"
+                            }`}
+                          >
+                            運転席
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">
+                          部品カテゴリ <span className="text-red-500">*</span>
+                        </Label>
+                        <Select
+                          value={row.partCategory}
+                          onValueChange={(value) => updatePartRow(row.id, "partCategory", value)}
+                        >
+                          <SelectTrigger className="border-gray-300 focus:border-blue-500">
+                            <SelectValue placeholder="カテゴリを選択" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PART_CATEGORIES.map((category) => (
+                              <SelectItem key={category.value} value={category.value}>
+                                {category.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {row.partCategory === "その他" && (
                         <div className="space-y-2">
-                          <Label className="text-sm text-gray-600">数量</Label>
+                          <Label className="text-gray-700 font-medium">
+                            部品名 <span className="text-red-500">*</span>
+                          </Label>
                           <Input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => updatePartItem(item.id, "quantity", e.target.value)}
-                            className="border-blue-200 focus:border-blue-500"
+                            value={row.partName}
+                            onChange={(e) => updatePartRow(row.id, "partName", e.target.value)}
+                            placeholder="部品名を入力"
+                            className="border-gray-300 focus:border-blue-500"
                           />
                         </div>
+                      )}
 
-                        <div className="space-y-2">
-                          <Label className="text-sm text-gray-600">備考</Label>
-                          <Textarea
-                            value={item.notes}
-                            onChange={(e) => updatePartItem(item.id, "notes", e.target.value)}
-                            placeholder="備考を入力"
-                            className="border-blue-200 focus:border-blue-500 min-h-[60px]"
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">数量</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={row.quantity}
+                          onChange={(e) => updatePartRow(row.id, "quantity", Number.parseInt(e.target.value) || 1)}
+                          className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">備考</Label>
+                        <Textarea
+                          value={row.notes}
+                          onChange={(e) => updatePartRow(row.id, "notes", e.target.value)}
+                          placeholder="備考を入力"
+                          rows={2}
+                          className="border-gray-300 focus:border-blue-500 focus:ring-blue-500 resize-none"
+                        />
+                      </div>
+                    </div>
                   ))}
                 </div>
 
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t">
+                  <Button
+                    type="button"
+                    onClick={() => setIsDialogOpen(false)}
+                    variant="outline"
+                    className="border-gray-300 w-full sm:w-auto"
+                  >
                     キャンセル
                   </Button>
                   <Button
                     type="submit"
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                    disabled={isLoading || !selectedStoreId || !replacedAt}
+                    disabled={isSubmitting}
+                    className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
                   >
-                    {isLoading ? "登録中..." : `${partItems.length}件を登録`}
+                    {isSubmitting ? "登録中..." : `${partRows.length}件を登録`}
                   </Button>
                 </div>
               </form>
@@ -582,6 +590,25 @@ export default function PartsReplacementPage() {
               </div>
             )}
 
+            <div className="space-y-2">
+              <Label>交換日（開始）</Label>
+              <Input
+                type="date"
+                value={searchDateFrom}
+                onChange={(e) => setSearchDateFrom(e.target.value)}
+                className="border-gray-200"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>交換日（終了）</Label>
+              <Input
+                type="date"
+                value={searchDateTo}
+                onChange={(e) => setSearchDateTo(e.target.value)}
+                className="border-gray-200"
+              />
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2 mt-4">
