@@ -20,6 +20,7 @@ import {
   Wrench,
   ChevronDown,
   ChevronUp,
+  Settings,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/components/auth-provider"
@@ -86,6 +87,12 @@ const menuItems = [
     name: "メンテナンス",
     href: "/maintenance",
     icon: Wrench,
+    external: false,
+  },
+  {
+    name: "部品交換履歴",
+    href: "/parts-replacement",
+    icon: Settings,
     external: false,
   },
   {
