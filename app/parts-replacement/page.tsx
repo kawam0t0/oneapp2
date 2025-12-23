@@ -589,26 +589,6 @@ export default function PartsReplacementPage() {
                 </Select>
               </div>
             )}
-
-            <div className="space-y-2">
-              <Label>交換日（開始）</Label>
-              <Input
-                type="date"
-                value={searchDateFrom}
-                onChange={(e) => setSearchDateFrom(e.target.value)}
-                className="border-gray-200"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>交換日（終了）</Label>
-              <Input
-                type="date"
-                value={searchDateTo}
-                onChange={(e) => setSearchDateTo(e.target.value)}
-                className="border-gray-200"
-              />
-            </div>
           </div>
 
           <div className="flex flex-wrap gap-2 mt-4">
