@@ -352,6 +352,27 @@ export default function PartsReplacementPage() {
     )
   }
 
+  const handleAddOpen = () => {
+    if (isAdmin) {
+      setSelectedStoreId("")
+    } else {
+      setSelectedStoreId(storeId?.toString() || "")
+    }
+
+    setReplacedAt(new Date().toISOString().split("T")[0])
+    setPartRows([
+      {
+        id: crypto.randomUUID(),
+        position: "",
+        partCategory: "",
+        partName: "",
+        quantity: 1,
+        notes: "",
+      },
+    ])
+    setIsDialogOpen(true)
+  }
+
   if (!storeName) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -371,7 +392,7 @@ export default function PartsReplacementPage() {
         {isAdmin && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto" onClick={handleAddOpen}>
                 <Plus className="w-4 h-4 mr-2" />
                 部品交換を報告
               </Button>
@@ -386,7 +407,7 @@ export default function PartsReplacementPage() {
                     <Label htmlFor="store" className="text-blue-800 font-medium">
                       店舗 <span className="text-red-500">*</span>
                     </Label>
-                    <Select value={storeId?.toString() || ""} onValueChange={setSelectedStoreId}>
+                    <Select value={selectedStoreId} onValueChange={setSelectedStoreId} disabled={!isAdmin}>
                       <SelectTrigger className="border-blue-200 focus:border-blue-500 focus:ring-blue-500">
                         <SelectValue placeholder="店舗を選択" />
                       </SelectTrigger>
