@@ -160,9 +160,10 @@ export default function DashboardView() {
   const [storeCategories, setStoreCategories] = useState<StoreCategoryData[]>([])
   const [storeSales, setStoreSales] = useState<StoreSalesData[]>([])
   const [memberChanges, setMemberChanges] = useState<MemberChangeData[]>([]) // 会員数増減のstate追加
+  const [initialLoading, setInitialLoading] = useState(true) // 初回ロードとリフレッシュを区別するための状態を追加
   const [loading, setLoading] = useState(false)
-  const [hiddenStores, setHiddenStores] = useState<Set<string>>(new Set())
   const categoryPeriod = getPreviousMonth()
+  const [hiddenStores, setHiddenStores] = useState(new Set<string>()) // hiddenStoresのstate追加
 
   const generatePeriods = () => {
     const periods = []
@@ -198,7 +199,9 @@ export default function DashboardView() {
   }, [categoryPeriod])
 
   const fetchData = async () => {
-    setLoading(true)
+    if (initialLoading) {
+      setLoading(true)
+    }
     try {
       const response = await fetch(`/api/dashboard?period=${selectedPeriod}`)
       const result: ApiResponse = await response.json()
@@ -206,7 +209,7 @@ export default function DashboardView() {
       if (result.error || !result.monthly || !result.today) {
         setMonthlyData([])
         setTodayData([])
-        setYesterdayData([]) //
+        setYesterdayData([])
         setDailyData([])
         setInvoiceMonthlyData([])
         setStoreSales([])
@@ -237,7 +240,7 @@ export default function DashboardView() {
 
       setMonthlyData(sortByOrder(filteredMonthly))
       setTodayData(sortByOrder(filteredToday))
-      setYesterdayData(sortByOrder(filteredYesterday)) // 前日データをセット
+      setYesterdayData(sortByOrder(filteredYesterday))
       setDailyData(result.daily || [])
       setInvoiceMonthlyData(result.invoiceMonthly || [])
       setStoreSales(result.storeSales || [])
@@ -245,12 +248,15 @@ export default function DashboardView() {
     } catch (error) {
       setMonthlyData([])
       setTodayData([])
-      setYesterdayData([]) //
+      setYesterdayData([])
       setDailyData([])
       setInvoiceMonthlyData([])
       setStoreSales([])
       setMemberChanges([])
     } finally {
+      if (initialLoading) {
+        setInitialLoading(false)
+      }
       setLoading(false)
     }
   }
@@ -286,7 +292,7 @@ export default function DashboardView() {
 
   const monthlyTotal = monthlyData.reduce((sum, store) => sum + store.total, 0)
 
-  if (loading) {
+  if (initialLoading && loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 p-6 flex items-center justify-center">
         <div className="text-blue-700 text-lg">読み込み中...</div>
