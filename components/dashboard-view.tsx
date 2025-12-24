@@ -113,6 +113,8 @@ const CATEGORY_COLORS: { [key: string]: string } = {
   ポイント: "#8b5cf6",
   キャンペーン: "#ec4899",
   無料券: "#6b7280",
+  セラミック: "#f59e0b",
+  セラミック祭り: "#f59e0b",
   その他: "#9ca3af",
 }
 
@@ -120,7 +122,7 @@ const COURSE_COLORS: { [key: string]: string } = {
   プレミアム: "#3b82f6",
   プラス: "#22c55e",
   ナイアガラ: "#0ea5e9",
-  セラミック: "#8b5cf6",
+  セラミック: "#f59e0b",
 }
 
 const handleLegendClick = (dataKey: string, setHiddenStores: React.Dispatch<React.SetStateAction<Set<string>>>) => {
@@ -424,7 +426,7 @@ export default function DashboardView() {
 
                         {memberChange && (
                           <div className="mb-3 bg-gray-50 rounded-xl p-3 border border-gray-200">
-                            <p className="text-xs text-gray-600 mb-1 font-medium">会員数の増減（前月比）</p>
+                            <p className="text-xs text-gray-600 mb-1 font-medium">会員数の増減（前月同日比）</p>
                             <div className="flex items-center gap-2">
                               {memberChange.change > 0 ? (
                                 <>

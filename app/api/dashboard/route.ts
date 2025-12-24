@@ -17,6 +17,7 @@ const getConnection = async () => {
 const categorizeItem = (details: string): string | null => {
   if (!details) return "その他"
   if (details.includes("高崎棟高店バキューム")) return null
+  if (details.includes("セラミック祭り")) return "セラミック祭り" // セラミック祭りカテゴリを追加
   if (details.includes("サブスク")) return "サブスク"
   if (details.includes("リピ")) return "リピート"
   if (details.includes("新規")) return "新規"
