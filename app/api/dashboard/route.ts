@@ -17,7 +17,7 @@ const getConnection = async () => {
 const categorizeItem = (details: string): string | null => {
   if (!details) return "その他"
   if (details.includes("高崎棟高店バキューム")) return null
-  if (details.includes("セラミック祭り")) return "セラミック祭り" // セラミック祭りカテゴリを追加
+  if (details.includes("セラミック祭り")) return "セラミック祭り"
   if (details.includes("サブスク")) return "サブスク"
   if (details.includes("リピ")) return "リピート"
   if (details.includes("新規")) return "新規"
@@ -42,24 +42,32 @@ const aggregateData = (rows: any[]) => {
 
   rows.forEach((row) => {
     const store = row.store
-    const item = categorizeItem(row.details)
+    const details = row.details
     const count = row.count
 
     if (!store || store === "0" || store.toString().trim() === "") {
       return
     }
 
-    if (item === null) {
-      return
-    }
+    // カンマで分割して各アイテムを個別に処理
+    const items = details.split(",").map((item: string) => item.trim())
 
-    if (!storeMap.has(store)) {
-      storeMap.set(store, { items: {}, total: 0 })
-    }
+    items.forEach((itemDetail: string) => {
+      const item = categorizeItem(itemDetail)
 
-    const storeData = storeMap.get(store)!
-    storeData.items[item] = (storeData.items[item] || 0) + count
-    storeData.total += count
+      if (item === null) {
+        return
+      }
+
+      if (!storeMap.has(store)) {
+        storeMap.set(store, { items: {}, total: 0 })
+      }
+
+      const storeData = storeMap.get(store)!
+      // 各アイテムを1件としてカウント（元のcountは使わない）
+      storeData.items[item] = (storeData.items[item] || 0) + 1
+      storeData.total += 1
+    })
   })
 
   return Array.from(storeMap.entries()).map(([store, data]) => ({
