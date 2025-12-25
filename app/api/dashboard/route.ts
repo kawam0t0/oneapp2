@@ -43,13 +43,19 @@ const aggregateData = (rows: any[]) => {
   rows.forEach((row) => {
     const store = row.store
     const details = row.details
-    const count = row.count
+    const count = row.count // データベースの実際の件数
 
     if (!store || store === "0" || store.toString().trim() === "") {
       return
     }
 
-    // カンマで分割して各アイテムを個別に処理
+    if (!storeMap.has(store)) {
+      storeMap.set(store, { items: {}, total: 0 })
+    }
+    const storeData = storeMap.get(store)!
+    storeData.total += count
+
+    // 1つのデータに複数カテゴリが含まれる場合、各カテゴリに元のcount値を加算
     const items = details.split(",").map((item: string) => item.trim())
 
     items.forEach((itemDetail: string) => {
@@ -59,14 +65,8 @@ const aggregateData = (rows: any[]) => {
         return
       }
 
-      if (!storeMap.has(store)) {
-        storeMap.set(store, { items: {}, total: 0 })
-      }
-
-      const storeData = storeMap.get(store)!
-      // 各アイテムを1件としてカウント（元のcountは使わない）
-      storeData.items[item] = (storeData.items[item] || 0) + 1
-      storeData.total += 1
+      // 各カテゴリに元のcountを加算
+      storeData.items[item] = (storeData.items[item] || 0) + count
     })
   })
 
