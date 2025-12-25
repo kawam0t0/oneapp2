@@ -70,23 +70,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    const insertPromises = parts.map((part: any) => {
+    const groupedParts = new Map<string, any>()
+
+    for (const part of parts) {
       const { position, partCategory, partName, quantity, notes } = part
 
       if (!partCategory || !partName) {
         throw new Error("Part category and name are required")
       }
 
+      // position + partCategory + partName の組み合わせでキーを作成
+      const key = `${position || ""}|${partCategory}|${partName}`
+
+      if (groupedParts.has(key)) {
+        // 既存のグループに数量を加算し、備考を結合
+        const existing = groupedParts.get(key)
+        existing.quantity += quantity || 1
+        if (notes && notes.trim()) {
+          existing.notes = existing.notes ? `${existing.notes}, ${notes}` : notes
+        }
+      } else {
+        // 新しいグループを作成
+        groupedParts.set(key, {
+          position: position || null,
+          partCategory,
+          partName,
+          quantity: quantity || 1,
+          notes: notes?.trim() || null,
+        })
+      }
+    }
+
+    // グループ化された部品をINSERT
+    const insertPromises = Array.from(groupedParts.values()).map((part) => {
       return query(
         `INSERT INTO parts_replacements (store_id, position, part_category, part_name, quantity, notes, replaced_at) 
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [storeId, position || null, partCategory, partName, quantity || 1, notes || null, replacedAt],
+        [storeId, part.position, part.partCategory, part.partName, part.quantity, part.notes, replacedAt],
       )
     })
 
     await Promise.all(insertPromises)
 
-    return NextResponse.json({ success: true, count: parts.length })
+    return NextResponse.json({ success: true, count: groupedParts.size })
   } catch (error) {
     console.error("[v0] Database error:", error)
     return NextResponse.json({ error: "Failed to create parts replacement records" }, { status: 500 })
