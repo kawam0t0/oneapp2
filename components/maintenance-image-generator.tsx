@@ -103,11 +103,24 @@ export function MaintenanceImageGenerator({ isOpen, onClose }: MaintenanceImageG
     ctx.fillText(title1, 1000, 200)
     ctx.fillText(title2, 1000, 300)
 
+    const sortedStores = [...stores].sort((a, b) => {
+      const dateA = storeDates[a.id]
+      const dateB = storeDates[b.id]
+
+      // 日付が設定されていない店舗は後ろに
+      if (!dateA && !dateB) return 0
+      if (!dateA) return 1
+      if (!dateB) return -1
+
+      // 日付が古い順（昇順）
+      return dateA.getTime() - dateB.getTime()
+    })
+
     // 各店舗と日付を描画
     const startY = 450
     const rowHeight = 140
 
-    stores.forEach((store, index) => {
+    sortedStores.forEach((store, index) => {
       const y = startY + index * rowHeight
       const date = storeDates[store.id]
 
