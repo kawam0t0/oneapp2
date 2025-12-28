@@ -119,10 +119,14 @@ const CATEGORY_COLORS: { [key: string]: string } = {
 }
 
 const COURSE_COLORS: { [key: string]: string } = {
-  プレミアム: "#3b82f6",
-  プラス: "#22c55e",
-  ナイアガラ: "#0ea5e9",
-  セラミック: "#f59e0b",
+  プレミアム: "#6366f1", // インディゴ
+  プラス: "#10b981", // 緑
+  ナイアガラ: "#06b6d4", // シアン
+  セラミック: "#f59e0b", // オレンジ
+  タートル: "#8b5cf6", // 紫
+  スタンダード: "#ec4899", // ピンク
+  ベーシック: "#14b8a6", // ティール
+  その他: "#9ca3af", // グレー
 }
 
 const handleLegendClick = (dataKey: string, setHiddenStores: React.Dispatch<React.SetStateAction<Set<string>>>) => {
@@ -603,7 +607,7 @@ export default function DashboardView() {
                               {storeData.categories.map((entry, index) => (
                                 <Cell
                                   key={`cell-${index}`}
-                                  fill={CATEGORY_COLORS[entry.name] || "#9ca3af"}
+                                  fill={COURSE_COLORS[entry.name] || "#9ca3af"}
                                   className="drop-shadow-sm"
                                 />
                               ))}
@@ -635,7 +639,7 @@ export default function DashboardView() {
                           <div key={category.name} className="flex items-center gap-2">
                             <div
                               className="w-3 h-3 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: CATEGORY_COLORS[category.name] || "#9ca3af" }}
+                              style={{ backgroundColor: COURSE_COLORS[category.name] || "#9ca3af" }}
                             />
                             <span className="text-xs text-gray-600 truncate">{category.name}</span>
                             <span className="text-xs font-semibold text-gray-800 ml-auto">{category.percentage}%</span>
