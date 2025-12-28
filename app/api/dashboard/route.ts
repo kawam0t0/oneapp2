@@ -43,7 +43,7 @@ const aggregateData = (rows: any[]) => {
   rows.forEach((row) => {
     const store = row.store
     const details = row.details
-    const count = row.count // データベースの実際の件数
+    const count = row.count
 
     if (!store || store === "0" || store.toString().trim() === "") {
       return
@@ -55,7 +55,6 @@ const aggregateData = (rows: any[]) => {
     const storeData = storeMap.get(store)!
     storeData.total += count
 
-    // 1つのデータに複数カテゴリが含まれる場合、各カテゴリに元のcount値を加算
     const items = details.split(",").map((item: string) => item.trim())
 
     items.forEach((itemDetail: string) => {
@@ -65,16 +64,19 @@ const aggregateData = (rows: any[]) => {
         return
       }
 
-      // 各カテゴリに元のcountを加算
       storeData.items[item] = (storeData.items[item] || 0) + count
     })
   })
 
-  return Array.from(storeMap.entries()).map(([store, data]) => ({
-    store,
-    items: data.items,
-    total: data.total,
-  }))
+  const result = Array.from(storeMap.entries()).map(([store, data]) => {
+    return {
+      store,
+      items: data.items,
+      total: data.total,
+    }
+  })
+
+  return result
 }
 
 const STORE_ORDER = [
@@ -101,7 +103,6 @@ export async function GET(request: Request) {
     const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000)
     const todayStr = `${nowJST.getUTCFullYear()}-${String(nowJST.getUTCMonth() + 1).padStart(2, "0")}-${String(nowJST.getUTCDate()).padStart(2, "0")}`
 
-    // 前日の日付を計算
     const yesterdayJST = new Date(nowJST.getTime() - 24 * 60 * 60 * 1000)
     const yesterdayStr = `${yesterdayJST.getUTCFullYear()}-${String(yesterdayJST.getUTCMonth() + 1).padStart(2, "0")}-${String(yesterdayJST.getUTCDate()).padStart(2, "0")}`
     const currentDay = nowJST.getUTCDate()
@@ -109,8 +110,6 @@ export async function GET(request: Request) {
     const connection = await getConnection()
 
     if (categoriesOnly) {
-      console.log("[v0] Categories only request for period:", startDate, "to", endDateStr)
-
       const [categoryRows] = await connection.execute(
         `SELECT store, details, COUNT(*) as count 
          FROM invoice 
@@ -118,9 +117,6 @@ export async function GET(request: Request) {
          GROUP BY store, details`,
         [startDate, endDateStr],
       )
-
-      console.log("[v0] Raw category rows count:", (categoryRows as any[]).length)
-      console.log("[v0] Sample rows:", (categoryRows as any[]).slice(0, 5))
 
       await connection.end()
 
@@ -143,8 +139,6 @@ export async function GET(request: Request) {
         storeData.total += count
       })
 
-      console.log("[v0] Processed stores:", Array.from(storeMap.keys()))
-
       const storeCategories = STORE_ORDER.filter((store) => storeMap.has(store)).map((store) => {
         const data = storeMap.get(store)!
         const categories = Array.from(data.courses.entries())
@@ -162,14 +156,11 @@ export async function GET(request: Request) {
         }
       })
 
-      console.log("[v0] Final storeCategories:", storeCategories)
-
       return NextResponse.json({
         storeCategories,
       })
     }
 
-    // 通常のリクエスト処理
     const [monthlyRows] = await connection.execute(
       `SELECT store, details, COUNT(*) as count 
        FROM onetime 
@@ -247,17 +238,14 @@ export async function GET(request: Request) {
       [startDate, endDateStr],
     )
 
-    // 今月1日〜今日までの会員数
     const currentMonthStart = `${year}-${month}-01`
     const currentMonthEnd = `${year}-${month}-${String(currentDay).padStart(2, "0")}`
 
-    // 前月1日〜前月の同日までの会員数
     const prevMonth = Number.parseInt(month) === 1 ? 12 : Number.parseInt(month) - 1
     const prevYear = Number.parseInt(month) === 1 ? Number.parseInt(year) - 1 : Number.parseInt(year)
     const prevMonthStart = `${prevYear}-${String(prevMonth).padStart(2, "0")}-01`
     const prevMonthEnd = `${prevYear}-${String(prevMonth).padStart(2, "0")}-${String(currentDay).padStart(2, "0")}`
 
-    // 今月: source = '請求書' のデータ数
     const [currentSourceCount] = await connection.execute(
       `SELECT store, COUNT(*) as count
        FROM invoice 
@@ -267,7 +255,6 @@ export async function GET(request: Request) {
       [currentMonthStart, currentMonthEnd],
     )
 
-    // 今月: card_entry_method = 'ON_FILE' のデータ数
     const [currentOnFileCount] = await connection.execute(
       `SELECT store, COUNT(*) as count
        FROM invoice 
@@ -277,7 +264,6 @@ export async function GET(request: Request) {
       [currentMonthStart, currentMonthEnd],
     )
 
-    // 今月: card_entry_method = 'KEYED' のデータ数
     const [currentKeyedCount] = await connection.execute(
       `SELECT store, COUNT(*) as count
        FROM invoice 
@@ -287,7 +273,6 @@ export async function GET(request: Request) {
       [currentMonthStart, currentMonthEnd],
     )
 
-    // 前月: source = '請求書' のデータ数
     const [prevSourceCount] = await connection.execute(
       `SELECT store, COUNT(*) as count
        FROM invoice 
@@ -297,7 +282,6 @@ export async function GET(request: Request) {
       [prevMonthStart, prevMonthEnd],
     )
 
-    // 前月: card_entry_method = 'ON_FILE' のデータ数
     const [prevOnFileCount] = await connection.execute(
       `SELECT store, COUNT(*) as count
        FROM invoice 
@@ -307,7 +291,6 @@ export async function GET(request: Request) {
       [prevMonthStart, prevMonthEnd],
     )
 
-    // 前月: card_entry_method = 'KEYED' のデータ数
     const [prevKeyedCount] = await connection.execute(
       `SELECT store, COUNT(*) as count
        FROM invoice 
@@ -321,7 +304,7 @@ export async function GET(request: Request) {
 
     const monthlyData = aggregateData(monthlyRows as any[])
     const todayData = aggregateData(todayRows as any[])
-    const yesterdayData = aggregateData(yesterdayRows as any[]) // 前日データも集計
+    const yesterdayData = aggregateData(yesterdayRows as any[])
 
     const monthlyOnetimeSalesMap = new Map<string, number>()
     ;(monthlyOnetimeSales as any[]).forEach((row) => {
@@ -443,10 +426,10 @@ export async function GET(request: Request) {
     return NextResponse.json({
       monthly: monthlyData,
       today: todayData,
-      yesterday: yesterdayData, // 前日データを追加
+      yesterday: yesterdayData,
       invoiceMonthly,
       storeSales,
-      memberChanges, // 会員数増減データを追加
+      memberChanges,
     })
   } catch (error) {
     console.error("[v0] Database error:", error)

@@ -376,9 +376,16 @@ export default function DashboardView() {
                           {/* 月間 */}
                           <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
                             <p className="text-xs text-blue-700 mb-1 font-medium">月間</p>
-                            <div className="flex items-baseline gap-1 mb-2">
-                              <p className="text-2xl font-bold text-blue-600">{store.total}</p>
-                              <p className="text-xs text-blue-600">台</p>
+                            <div className="mb-2">
+                              <div className="flex items-baseline gap-1">
+                                <p className="text-2xl font-bold text-blue-600">{store.total}</p>
+                                <p className="text-xs text-blue-600">台</p>
+                              </div>
+                              <div className="flex items-center gap-1 mt-1 h-[20px]">
+                                <span className="text-[10px] text-transparent">前日:</span>
+                                <span className="text-sm font-semibold text-transparent">0</span>
+                                <span className="text-[10px] text-transparent">台</span>
+                              </div>
                             </div>
                             {isAdmin && sales && (
                               <div className="border-t border-blue-200 pt-2">
@@ -426,7 +433,7 @@ export default function DashboardView() {
 
                         {memberChange && (
                           <div className="mb-3 bg-gray-50 rounded-xl p-3 border border-gray-200">
-                            <p className="text-xs text-gray-600 mb-1 font-medium">会員数の増減（前月同日比）</p>
+                            <p className="text-xs text-gray-600 mb-1 font-medium">会員数の増減（前月比）</p>
                             <div className="flex items-center gap-2">
                               {memberChange.change > 0 ? (
                                 <>
@@ -452,10 +459,18 @@ export default function DashboardView() {
                         <div>
                           <p className="text-xs font-medium text-gray-500 mb-2">カテゴリ内訳</p>
                           <div className="space-y-1.5">
-                            {Object.entries(store.items)
-                              .sort((a, b) => b[1] - a[1])
-                              .slice(0, 5)
-                              .map(([itemName, count]) => {
+                            {(() => {
+                              const entries = Object.entries(store.items).sort((a, b) => b[1] - a[1])
+                              const ceramicEntry = entries.find(([name]) => name === "セラミック祭り")
+                              const topEntries = entries.slice(0, 5)
+
+                              // セラミック祭りがあり、かつtop5に含まれていない場合は追加
+                              if (ceramicEntry && !topEntries.some(([name]) => name === "セラミック祭り")) {
+                                topEntries.pop() // 最後の要素を削除
+                                topEntries.push(ceramicEntry) // セラミック祭りを追加
+                              }
+
+                              return topEntries.map(([itemName, count]) => {
                                 const todayCount = todayStore?.items?.[itemName] || 0
                                 return (
                                   <div key={itemName} className="flex justify-between items-center">
@@ -465,7 +480,8 @@ export default function DashboardView() {
                                     </span>
                                   </div>
                                 )
-                              })}
+                              })
+                            })()}
                           </div>
                         </div>
                       </CardContent>
@@ -587,7 +603,7 @@ export default function DashboardView() {
                               {storeData.categories.map((entry, index) => (
                                 <Cell
                                   key={`cell-${index}`}
-                                  fill={COURSE_COLORS[entry.name] || "#9ca3af"}
+                                  fill={CATEGORY_COLORS[entry.name] || "#9ca3af"}
                                   className="drop-shadow-sm"
                                 />
                               ))}
@@ -619,7 +635,7 @@ export default function DashboardView() {
                           <div key={category.name} className="flex items-center gap-2">
                             <div
                               className="w-3 h-3 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: COURSE_COLORS[category.name] || "#9ca3af" }}
+                              style={{ backgroundColor: CATEGORY_COLORS[category.name] || "#9ca3af" }}
                             />
                             <span className="text-xs text-gray-600 truncate">{category.name}</span>
                             <span className="text-xs font-semibold text-gray-800 ml-auto">{category.percentage}%</span>
