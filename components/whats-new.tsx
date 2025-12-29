@@ -75,13 +75,13 @@ export function WhatsNew() {
     <>
       <button
         onClick={handleClick}
-        className="flex items-center gap-3 group cursor-pointer hover:opacity-80 transition-opacity"
+        className="flex items-center gap-2 md:gap-3 group cursor-pointer hover:opacity-80 transition-opacity"
       >
-        <span className="bg-red-500 text-white text-base font-bold px-4 py-2 rounded-md animate-pulse shadow-lg">
+        <span className="bg-red-500 text-white text-xs md:text-base font-bold px-3 py-1.5 md:px-4 md:py-2 rounded-md animate-pulse shadow-lg whitespace-nowrap">
           NEW
         </span>
         <span
-          className={`text-white text-lg font-extrabold transition-all duration-700 ease-out ${
+          className={`text-white text-sm md:text-lg font-extrabold transition-all duration-700 ease-out line-clamp-1 ${
             isVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8"
           }`}
         >
