@@ -663,7 +663,7 @@ export default function DashboardView() {
                   <h3 className="text-lg font-bold text-gray-900 mb-6">ライブカメラ映像</h3>
                   <div className="aspect-video w-full rounded-lg overflow-hidden bg-gray-100">
                     <iframe
-                      src="https://www.youtube.com/embed/rxzS3As_A4g?autoplay=1&mute=1"
+                      src="https://www.youtube.com/embed/gSlUaTlRQdQ?autoplay=1&mute=1"
                       width="100%"
                       height="100%"
                       frameBorder="0"
