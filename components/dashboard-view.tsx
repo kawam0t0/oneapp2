@@ -661,17 +661,15 @@ export default function DashboardView() {
               <Card className="border-2 border-blue-200 bg-white shadow-lg">
                 <CardContent className="p-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-6">ライブカメラ映像</h3>
-                  <div className="aspect-video w-full rounded-lg overflow-hidden bg-gray-100">
-                    <iframe
-                      src="https://www.youtube.com/embed/gSlUaTlRQdQ?autoplay=1&mute=1"
-                      width="100%"
-                      height="100%"
-                      frameBorder="0"
-                      allow="autoplay; encrypted-media"
-                      allowFullScreen
-                      className="w-full h-full"
-                      style={{ background: "#000" }}
-                    />
+                  <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">
+                   <video
+                     src="http://localhost:8888/store01/index.m3u8"
+                       controls
+                       autoPlay
+                       muted
+                       playsInline
+                       className="w-full aspect-video bg-black"
+                     />
                   </div>
                 </CardContent>
               </Card>
