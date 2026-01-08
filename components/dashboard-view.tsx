@@ -657,24 +657,25 @@ export default function DashboardView() {
 
           {/* ライブカメラ映像セクション */}
           {isAdmin && (
-            <div className="mt-8">
-              <Card className="border-2 border-blue-200 bg-white shadow-lg">
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-6">ライブカメラ映像</h3>
-                  <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">
-                   <video
-                     src="http://localhost:8888/store01/index.m3u8"
-                       controls
-                       autoPlay
-                       muted
-                       playsInline
-                       className="w-full aspect-video bg-black"
-                     />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+  <div className="mt-8">
+    <Card className="border-2 border-blue-200 bg-white shadow-lg">
+      <CardContent className="p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-6">
+          ライブカメラ映像
+        </h3>
+        <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">
+          <iframe
+            src="https://www.youtube.com/embed/live_stream?channel=UChAPXTTOb7kV1IWGGYjUEww"
+            className="w-full h-full"
+            allow="autoplay; encrypted-media"
+            allowFullScreen
+            />
+
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+)}
         </div>
       </div>
     </div>
