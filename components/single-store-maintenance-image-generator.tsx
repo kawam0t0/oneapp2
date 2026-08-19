@@ -30,60 +30,96 @@ export function SingleStoreMaintenanceImageGenerator({
     if (isOpen && selectedDate) {
       generateImage()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, selectedDate])
 
-  const generateImage = () => {
+  const generateImage = async () => {
     const canvas = canvasRef.current
     if (!canvas || !selectedDate) return
 
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
+    // カスタムフォントを読み込む
+    try {
+      const logoFontUltra = new FontFace("LogoGUltra", "url(/fonts/LogoGStd-Ultra.otf)")
+      const avantGardeFont = new FontFace("AvantGarde", "url(/fonts/ITCAvantGardeStd-Bold.ttf)")
+      await Promise.all([logoFontUltra.load(), avantGardeFont.load()])
+      document.fonts.add(logoFontUltra)
+      document.fonts.add(avantGardeFont)
+    } catch (e) {
+      console.error("Font loading failed:", e)
+    }
+
     // キャンバスサイズ設定 (2000x1414px)
     canvas.width = 2000
     canvas.height = 1414
 
-    // 背景 - 青枠
-    ctx.fillStyle = "#1e3a8a"
+    // 背景全体 - 青色 (#0025CC)
+    ctx.fillStyle = "#0025CC"
     ctx.fillRect(0, 0, 2000, 1414)
 
-    // 内側 - 白背景
-    ctx.fillStyle = "#ffffff"
-    ctx.fillRect(40, 40, 1920, 1334)
+    // タイトル部分 - 上部青バー
+    ctx.fillStyle = "#0025CC"
+    ctx.fillRect(0, 0, 2000, 350)
 
-    // タイトル背景 - 青
-    ctx.fillStyle = "#1e3a8a"
-    ctx.fillRect(40, 40, 1920, 200)
-
-    // タイトルテキスト
+    // タイトルテキスト - 白文字（日本語フォント）
     ctx.fillStyle = "#ffffff"
-    ctx.font = "bold 80px sans-serif"
+    ctx.font = "90px LogoGUltra, 'Hiragino Kaku Gothic ProN', sans-serif"
     ctx.textAlign = "center"
     ctx.textBaseline = "middle"
-    ctx.fillText("洗車機メンテナンスに伴う", 1000, 100)
-    ctx.fillText("休業のお知らせ", 1000, 180)
+    ctx.fillText("洗車機メンテナンスに伴う", 1000, 135)
+    ctx.fillText("休業のお知らせ", 1000, 235)
 
-    // 日付部分
+    // 白い背景部分（中央から下）
+    ctx.fillStyle = "#f5f5f0"
+    ctx.fillRect(0, 350, 2000, 1134)
+
+    // 日付部分 - 数字と日本語を分けて描画
     const month = selectedDate.getMonth() + 1
     const day = selectedDate.getDate()
     const dayOfWeek = ["日", "月", "火", "水", "木", "金", "土"][selectedDate.getDay()]
 
-    ctx.fillStyle = "#dc2626"
-    ctx.font = "bold 180px sans-serif"
+    ctx.fillStyle = "#ff3131"
     ctx.textAlign = "center"
-    ctx.fillText(`${month}月${day}日（${dayOfWeek}）`, 1000, 550)
+    ctx.textBaseline = "alphabetic"
+    
+    // 日付テキスト全体の幅を計算して中央配置
+    const dateText = `${month}月${day}日(${dayOfWeek})`
+    const numFont = "300px AvantGarde, sans-serif"
+    const textFont = "300px LogoGUltra, 'Hiragino Kaku Gothic ProN', sans-serif"
+    
+    // 文字を1つずつ描画して数字と日本語でフォントを切り替え
+    const chars = dateText.split('')
+    const totalWidth = chars.reduce((sum, char) => {
+      ctx.font = /[0-9]/.test(char) ? numFont : textFont
+      return sum + ctx.measureText(char).width
+    }, 0)
+    
+    // ベースラインを揃えるためalphabeticを使用し、Y座標を固定
+    const baselineY = 730
+    
+    // 中央配置のための開始X座標
+    ctx.textAlign = "left"
+    let currentX = 1000 - totalWidth / 2
+    for (const char of chars) {
+      ctx.font = /[0-9]/.test(char) ? numFont : textFont
+      ctx.fillText(char, currentX, baselineY)
+      currentX += ctx.measureText(char).width
+    }
 
-    // メッセージ
-    ctx.fillStyle = "#dc2626"
-    ctx.font = "bold 100px sans-serif"
-    ctx.fillText("終日お休みとさせていただきます！", 1000, 800)
+    // メッセージ - 赤文字（日本語フォント）
+    ctx.fillStyle = "#ff3131"
+    ctx.font = "100px LogoGUltra, 'Hiragino Kaku Gothic ProN', sans-serif"
+    ctx.textAlign = "center"
+    ctx.fillText("終日お休みとさせていただきます！", 1000, 950)
 
-    // 下部メッセージ
-    ctx.fillStyle = "#1e3a8a"
-    ctx.font = "bold 40px sans-serif"
-    ctx.fillText("⚠️翌日より通常通り営業開始となります。", 1000, 1050)
-    ctx.font = "bold 42px sans-serif"
-    ctx.fillText("お客様にはご不便をおかけしますが、ご理解とご協力をお願い申し上げます！", 1000, 1150)
+    // 下部メッセージ - 青文字（日本語フォント）
+    ctx.fillStyle = "#0025CC"
+    ctx.font = "55px LogoGUltra, 'Hiragino Kaku Gothic ProN', sans-serif"
+    ctx.textAlign = "center"
+    ctx.fillText("⚠️翌日より通常通り営業開始となります。", 1000, 1180)
+    ctx.fillText("お客様にはご不便をおかけしますが、ご理解とご協力をお願い申し上げます！", 1000, 1260)
   }
 
   const handleDownload = () => {

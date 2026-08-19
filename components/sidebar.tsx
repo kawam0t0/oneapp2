@@ -21,6 +21,8 @@ import {
   ChevronDown,
   ChevronUp,
   Settings,
+  Search,
+  Upload,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/components/auth-provider"
@@ -71,6 +73,12 @@ const menuItems = [
     isSpreadsheet: true,
   },
   {
+    name: "顧客検索",
+    href: "/customer-search",
+    icon: Search,
+    external: false,
+  },
+  {
     name: "カレンダー",
     href: "/calendar",
     icon: CalendarDays,
@@ -79,6 +87,13 @@ const menuItems = [
   {
     name: "キャンペーン",
     href: "/campaign",
+    icon: Trophy,
+    external: false,
+    adminOnly: true,
+  },
+  {
+    name: "キャンペーンその後",
+    href: "/campaign-after",
     icon: Trophy,
     external: false,
     adminOnly: true,
@@ -103,7 +118,7 @@ const menuItems = [
   },
   {
     name: "備品発注",
-    href: "https://kawam0t0-orderwebapp20250502.vercel.app/login",
+    href: "https://orderapp-v2.vercel.app/login",
     icon: Package,
     external: true,
   },
@@ -112,6 +127,13 @@ const menuItems = [
     href: "https://connect.airregi.jp/login?client_id=SFT&redirect_uri=https%3A%2F%2Fconnect.airregi.jp%2Foauth%2Fauthorize%3Fclient_id%3DSFT%26redirect_uri%3Dhttps%253A%252F%252Fairshift.jp%252Fsft%252Fcallback%26response_type%3Dcode%26state%3DredirectTo%253A%25252Fsft%25252F",
     icon: ExternalLink,
     external: true,
+  },
+  {
+    name: "退会CSVアップロード",
+    href: "https://taikaicssv.vercel.app/",
+    icon: Upload,
+    external: true,
+    adminOnly: true,
   },
 ]
 
@@ -244,13 +266,6 @@ export function Sidebar() {
 
                   {isSpreadsheetSubmenuOpen && (
                     <div className="ml-4 mt-1 space-y-1">
-                      <button
-                        onClick={handleCommonSpreadsheetClick}
-                        className="flex items-center gap-3 px-4 py-2 rounded-lg text-white hover:bg-blue-500 transition-colors w-full text-left text-sm"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        <span>移動ラベル</span>
-                      </button>
                       <button
                         onClick={handleStoreSpreadsheetClick}
                         className="flex items-center gap-3 px-4 py-2 rounded-lg text-white hover:bg-blue-500 transition-colors w-full text-left text-sm"

@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* LogoG Std フォント */
+@font-face {
+  font-family: "LogoG Std";
+  src: url("/fonts/LogoGStd-Bold.otf") format("opentype");
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 /* 青色を基調としたカラーに変更 */
@@ -130,4 +139,18 @@
   content: attr(data-placeholder);
   color: #9ca3af;
   pointer-events: none;
+}
+
+/* 39CAMPAIN 1位 数字アニメーション */
+@keyframes goldNumberPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    text-shadow: 0 0 0px rgba(234,179,8,0);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.14);
+    text-shadow: 0 0 10px rgba(234,179,8,0.9), 0 0 22px rgba(234,179,8,0.5);
+  }
 }

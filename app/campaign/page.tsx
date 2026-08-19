@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { AppLayout } from "@/components/app-layout"
-import { Calendar } from "lucide-react"
+import { Calendar, ChevronDown, ChevronUp } from "lucide-react"
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { KagoshimaDetail } from "@/components/kagoshima-detail"
+import { FujiokaOsukaDetail } from "@/components/fujiokaosuka-detail"
 
 interface CampaignData {
   ashikaga: {
@@ -33,6 +35,20 @@ interface CampaignData {
     subscItems: { details: string; count: number }[]
     subscLabel: string
     subscNetTotal?: number
+    weeklySubsc: { [week: number]: number }
+    weeklyPos: { [week: number]: number }
+  }
+  kagoshima: {
+    storeName: string
+    period: string
+    posItems: { details: string; count: number }[]
+    subscCount: number
+    subscSalesTotal: number
+    onetimeSalesTotal: number
+    marchSub: number
+    marchOne: number
+    aprilSub: number
+    aprilOne: number
     weeklySubsc: { [week: number]: number }
     weeklyPos: { [week: number]: number }
   }
@@ -107,12 +123,18 @@ const promotionPrices: { [storeName: string]: { [promoName: string]: number } } 
     インスタけーちゃん: 40000,
     インスタ歩き方: 40000,
   },
+  鹿児島中山店: {
+    PRタイムズ: 110000,
+    インスタけーちゃん: 40000,
+  },
 }
 
 export default function CampaignPage() {
   const [data, setData] = useState<CampaignData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set())
+  const [kagoshimaOpen, setKagoshimaOpen] = useState(false)
+  const [fujiokaOsukaOpen, setFujiokaOsukaOpen] = useState(false)
 
   const campaignInfo = {
     足利緑町店: {
@@ -142,6 +164,14 @@ export default function CampaignPage() {
         "インスタ歩き方",
       ],
     },
+    鹿児島中山店: {
+      days: 32,
+      promotions: [],
+    },
+    藤岡大塚店: {
+      days: 37,
+      promotions: [],
+    },
   }
 
   const campaignSales = {
@@ -164,6 +194,16 @@ export default function CampaignPage() {
       ],
     },
   }
+  // 鹿児島中山店の売上はAPIから取得
+  const kagoshimaSalesFromApi = data?.kagoshima ? {
+    total: (data.kagoshima.subscSalesTotal || 0) + (data.kagoshima.onetimeSalesTotal || 0),
+    totalSub: data.kagoshima.subscSalesTotal || 0,
+    totalOne: data.kagoshima.onetimeSalesTotal || 0,
+    months: [
+      { month: "3月度", sub: data.kagoshima.marchSub || 0, one: data.kagoshima.marchOne || 0 },
+      { month: "4月度", sub: data.kagoshima.aprilSub || 0, one: data.kagoshima.aprilOne || 0 },
+    ],
+  } : null
 
   useEffect(() => {
     const fetchData = async () => {
@@ -247,6 +287,46 @@ export default function CampaignPage() {
       promotions: campaignInfo.太田新田店.promotions,
       sales: campaignSales.太田新田店,
     },
+    {
+      name: "鹿児島中山店",
+      period: data.kagoshima.period,
+      total: 14828, // 台数合計（確定値）
+      // サブスク入会数: 初月無料・DBに未格納のため固定値
+      subscCount: 2314,
+      groups: groupItems(data.kagoshima.posItems),
+      // 週別サブスク入会数: 固定値（初月無料・DBに未格納）
+      weeklySubsc: { 1: 408, 2: 191, 3: 318, 4: 486, 5: 989 },
+      weeklyPos: data.kagoshima.weeklyPos || {},
+      campaignDays: campaignInfo.鹿児島中山店.days,
+      promotions: campaignInfo.鹿児島中山店.promotions,
+      sales: kagoshimaSalesFromApi,
+    },
+    {
+      name: "藤岡大塚店",
+      period: "2026/4/26〜2026/5/末",
+      total: 14899, // 台数合計（確定値）
+      // サブスク入会数: 固定値
+      subscCount: 2323,
+      groups: [
+        { name: "新規",   count: 5629 },
+        { name: "リピート", count: 6117 },
+        { name: "サブスク", count: 911 },
+      ],
+      // 週別サブスク入会数（日次から算出: 1〜7日目, 8〜14日目, 15〜21日目, 22〜28日目, 29〜35日目, 36〜37日目）
+      weeklySubsc: { 1: 136, 2: 131, 3: 317, 4: 266, 5: 337, 6: 800, 7: 336 },
+      weeklyPos: { 1: 2643, 2: 2691, 3: 2476, 4: 2637, 5: 2819, 6: 959, 7: 296 },
+      campaignDays: campaignInfo.藤岡大塚店.days,
+      promotions: campaignInfo.藤岡大塚店.promotions,
+      sales: {
+        total: 681200,
+        totalSub: 0,
+        totalOne: 681200,
+        months: [
+          { month: "4月度", sub: 0, one: 241700 },
+          { month: "5月度", sub: 0, one: 439500 },
+        ],
+      },
+    },
   ]
 
   const maxWeeksSubsc = Math.max(...stores.map((store) => Math.max(...Object.keys(store.weeklySubsc).map(Number), 0)))
@@ -263,9 +343,13 @@ export default function CampaignPage() {
       足利緑町店: stores[0].weeklySubsc[week] || 0,
       新前橋店: stores[1].weeklySubsc[week] || 0,
       太田新田店: stores[2].weeklySubsc[week] || 0,
+      鹿児島中山店: stores[3].weeklySubsc[week] || 0,
+      藤岡大塚店: stores[4].weeklySubsc[week] || 0,
       足利緑町店_台数: stores[0].weeklyPos[week] || 0,
       新前橋店_台数: stores[1].weeklyPos[week] || 0,
       太田新田店_台数: stores[2].weeklyPos[week] || 0,
+      鹿児島中山店_台数: stores[3].weeklyPos[week] || 0,
+      藤岡大塚店_台数: stores[4].weeklyPos[week] || 0,
     })
   }
 
@@ -335,47 +419,75 @@ export default function CampaignPage() {
                   key={index}
                   className="bg-white rounded-2xl shadow-sm border border-blue-100 overflow-hidden hover:shadow-md transition-shadow"
                 >
-                  <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-5">
-                    <h2 className="text-xl font-bold text-white">{store.name}</h2>
+                  <div
+                    className={`bg-gradient-to-r from-blue-500 to-blue-600 p-5 ${store.name === "鹿児島中山店" || store.name === "藤岡大塚店" ? "cursor-pointer select-none" : ""}`}
+                    onClick={() => {
+                      if (store.name === "鹿児島中山店") setKagoshimaOpen((v) => !v)
+                      if (store.name === "藤岡大塚店") setFujiokaOsukaOpen((v) => !v)
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-xl font-bold text-white">{store.name}</h2>
+                      {store.name === "鹿児島中山店" && (
+                        <div className="flex items-center gap-1 bg-white/20 rounded-full px-3 py-1">
+                          <span className="text-white/90 text-xs font-medium">詳細</span>
+                          {kagoshimaOpen
+                            ? <ChevronUp className="w-4 h-4 text-white" />
+                            : <ChevronDown className="w-4 h-4 text-white" />
+                          }
+                        </div>
+                      )}
+                      {store.name === "藤岡大塚店" && (
+                        <div className="flex items-center gap-1 bg-white/20 rounded-full px-3 py-1">
+                          <span className="text-white/90 text-xs font-medium">詳細</span>
+                          {fujiokaOsukaOpen
+                            ? <ChevronUp className="w-4 h-4 text-white" />
+                            : <ChevronDown className="w-4 h-4 text-white" />
+                          }
+                        </div>
+                      )}
+                    </div>
                     <p className="text-white/80 text-sm mt-1">{store.period}</p>
                     <p className="text-white/90 text-sm mt-1 font-medium">キャンペーン日数：{store.campaignDays}日間</p>
                   </div>
 
                   <div className="p-5 space-y-4">
-                    <div className="bg-gray-50 rounded-xl p-4">
-                      <p className="text-xs font-medium text-gray-500 mb-2">プロモーション</p>
-                      <TooltipProvider>
-                        <div className="flex flex-wrap gap-1.5">
-                          {store.promotions.map((promo, idx) => {
-                            const price = storePrices[promo]
+                    {store.promotions.length > 0 && (
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-2">プロモーション</p>
+                        <TooltipProvider>
+                          <div className="flex flex-wrap gap-1.5">
+                            {store.promotions.map((promo, idx) => {
+                              const price = storePrices[promo]
 
-                            if (price) {
+                              if (price) {
+                                return (
+                                  <UITooltip key={idx}>
+                                    <TooltipTrigger asChild>
+                                      <span className="inline-block bg-white border border-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors">
+                                        {promo}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="font-medium">¥{price.toLocaleString()}</p>
+                                    </TooltipContent>
+                                  </UITooltip>
+                                )
+                              }
+
                               return (
-                                <UITooltip key={idx}>
-                                  <TooltipTrigger asChild>
-                                    <span className="inline-block bg-white border border-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors">
-                                      {promo}
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="font-medium">¥{price.toLocaleString()}</p>
-                                  </TooltipContent>
-                                </UITooltip>
+                                <span
+                                  key={idx}
+                                  className="inline-block bg-white border border-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full"
+                                >
+                                  {promo}
+                                </span>
                               )
-                            }
-
-                            return (
-                              <span
-                                key={idx}
-                                className="inline-block bg-white border border-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full"
-                              >
-                                {promo}
-                              </span>
-                            )
-                          })}
-                        </div>
-                      </TooltipProvider>
-                    </div>
+                            })}
+                          </div>
+                        </TooltipProvider>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="bg-blue-50 rounded-xl p-4">
@@ -461,6 +573,40 @@ export default function CampaignPage() {
               )
             })}
           </div>
+
+          {/* 鹿児島中山店 詳細（クリックで展開） */}
+          {kagoshimaOpen && (
+            <div className="bg-white rounded-2xl shadow-sm border border-blue-200 p-6">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xl font-bold text-gray-900">鹿児島中山店 - キャンペーン詳細データ</h2>
+                <button
+                  onClick={() => setKagoshimaOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 text-sm flex items-center gap-1"
+                >
+                  <ChevronUp className="w-4 h-4" />
+                  閉じる
+                </button>
+              </div>
+              <KagoshimaDetail />
+            </div>
+          )}
+
+          {/* 藤岡大塚店 詳細（クリックで展開） */}
+          {fujiokaOsukaOpen && (
+            <div className="bg-white rounded-2xl shadow-sm border border-purple-200 p-6">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xl font-bold text-gray-900">藤岡大塚店 - キャンペーン詳細データ</h2>
+                <button
+                  onClick={() => setFujiokaOsukaOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 text-sm flex items-center gap-1"
+                >
+                  <ChevronUp className="w-4 h-4" />
+                  閉じる
+                </button>
+              </div>
+              <FujiokaOsukaDetail />
+            </div>
+          )}
 
           <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-2">週別サブスク入会数・合計台数推移</h2>
@@ -554,6 +700,44 @@ export default function CampaignPage() {
                     dot={{ r: 2, fill: "#c4b5fd" }}
                     activeDot={{ r: 4 }}
                     hide={hiddenSeries.has("太田新田店_台数")}
+                  />
+                  {/* 鹿児島中山店（棒グラフ + 折れ線グラフ） */}
+                  <Bar
+                    yAxisId="left"
+                    dataKey="鹿児島中山店"
+                    fill="#fb923c"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={40}
+                    hide={hiddenSeries.has("鹿児島中山店")}
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="鹿児島中山店_台数"
+                    stroke="#fb923c"
+                    strokeWidth={2}
+                    dot={{ r: 2, fill: "#fb923c" }}
+                    activeDot={{ r: 4 }}
+                    hide={hiddenSeries.has("鹿児島中山店_台数")}
+                  />
+                  {/* 藤岡大塚店（棒グラフ + 折れ線グラフ） */}
+                  <Bar
+                    yAxisId="left"
+                    dataKey="藤岡大塚店"
+                    fill="#a78bfa"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={40}
+                    hide={hiddenSeries.has("藤岡大塚店")}
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="藤岡大塚店_台数"
+                    stroke="#7c3aed"
+                    strokeWidth={2}
+                    dot={{ r: 2, fill: "#7c3aed" }}
+                    activeDot={{ r: 4 }}
+                    hide={hiddenSeries.has("藤岡大塚店_台数")}
                   />
                 </ComposedChart>
               </ResponsiveContainer>

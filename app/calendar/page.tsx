@@ -32,17 +32,22 @@ const MONTHLY_LABELS: Record<number, Array<{ text: string; color: string }>> = {
     { text: "HPB", color: "text-blue-600 bg-blue-100" },
     { text: "HPO", color: "text-green-600 bg-green-100" },
     { text: "RCO", color: "text-purple-600 bg-purple-100" },
+    { text: "ROP", color: "text-rose-600 bg-rose-100" },
   ],
   3: [
     { text: "HPO", color: "text-green-600 bg-green-100" },
     { text: "DSP", color: "text-orange-600 bg-orange-100" },
     { text: "COMP", color: "text-red-600 bg-red-100" },
   ],
-  6: [{ text: "HPO", color: "text-green-600 bg-green-100" }],
+  6: [
+    { text: "HPO", color: "text-green-600 bg-green-100" },
+    { text: "ROP", color: "text-rose-600 bg-rose-100" },
+  ],
   9: [
     { text: "HPO", color: "text-green-600 bg-green-100" },
     { text: "DSP", color: "text-orange-600 bg-orange-100" },
     { text: "COMP", color: "text-red-600 bg-red-100" },
+    { text: "DYR", color: "text-amber-600 bg-amber-100" },
   ],
 }
 
@@ -93,6 +98,10 @@ export default function CalendarPage() {
   const [dbEvents, setDbEvents] = useState<CalendarEvent[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [currentStoreName, setCurrentStoreName] = useState<string>("")
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [stores, setStores] = useState<{ id: number; store_name: string }[]>([])
+  const [selectedStoreId, setSelectedStoreId] = useState<string>("")
+  const [isAddingHoliday, setIsAddingHoliday] = useState(false)
 
   const getHolidayEvents = useCallback((date: Date): CalendarEvent[] => {
     const year = date.getFullYear()
@@ -279,7 +288,9 @@ export default function CalendarPage() {
       const res = await fetch(`/api/calendar?year=${year}&month=${month}`)
       if (res.ok) {
         const data = await res.json()
-        setDbEvents(data)
+        // メインカレンダーではメンテナンス週間を除外（定休日のみ表示）
+        const filteredData = data.filter((event: CalendarEvent) => !event.is_maintenance_week)
+        setDbEvents(filteredData)
       }
     } catch (error) {
       console.error("Failed to fetch events:", error)
@@ -309,21 +320,40 @@ export default function CalendarPage() {
   }, [])
 
   const handleDeleteEvent = useCallback(
-    async (eventId: number) => {
-      if (!confirm("このイベントを削除しますか？")) return
-
+    async (event: CalendarEvent) => {
       try {
-        const res = await fetch(`/api/calendar/${eventId}`, {
-          method: "DELETE",
-        })
-
-        if (res.ok) {
-          if (currentDate) {
-            await fetchEvents(currentDate)
+        // 店舗定休日の場合（store_idの存在で判定）
+        if (event.store_id) {
+          // IDからdb-holiday-プレフィックスを除去（あれば）
+          const holidayId = typeof event.id === "string" && event.id.startsWith("db-holiday-")
+            ? event.id.replace("db-holiday-", "")
+            : event.id
+          const res = await fetch(`/api/store-holidays?id=${holidayId}`, {
+            method: "DELETE",
+          })
+          if (!res.ok) {
+            const data = await res.json()
+            alert(data.error || "定休日の削除に失敗しました")
+            return
           }
+        } else {
+          // 通常イベントの場合
+          const res = await fetch(`/api/calendar/${event.id}`, {
+            method: "DELETE",
+          })
+          if (!res.ok) {
+            alert("イベントの削除に失敗しました")
+            return
+          }
+        }
+
+        // 再取得
+        if (currentDate) {
+          await fetchEvents(currentDate)
         }
       } catch (error) {
         console.error("Failed to delete event:", error)
+        alert("削除処理中にエラーが発生しました")
       }
     },
     [currentDate, fetchEvents],
@@ -361,6 +391,39 @@ export default function CalendarPage() {
     }
   }, [newEventTitle, selectedDate, currentDate, fetchEvents])
 
+  const addStoreHoliday = useCallback(async () => {
+    if (!selectedStoreId || !selectedDate) {
+      return
+    }
+
+    setIsAddingHoliday(true)
+
+    try {
+      const res = await fetch("/api/store-holidays", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          store_id: selectedStoreId,
+          holiday_date: selectedDate,
+        }),
+      })
+
+      if (res.ok) {
+        setSelectedStoreId("")
+        if (currentDate) {
+          await fetchEvents(currentDate)
+        }
+      } else {
+        const data = await res.json()
+        alert(data.error || "定休日の追加に失敗しました")
+      }
+    } catch (error) {
+      console.error("Failed to add store holiday:", error)
+    } finally {
+      setIsAddingHoliday(false)
+    }
+  }, [selectedStoreId, selectedDate, currentDate, fetchEvents])
+
   useEffect(() => {
     const fetchSession = async () => {
       try {
@@ -368,6 +431,7 @@ export default function CalendarPage() {
         if (res.ok) {
           const data = await res.json()
           setCurrentStoreName(data.store_name || "")
+          setIsAdmin(String(data.role).toLowerCase() === "admin" || data.store_name === "admin")
         }
       } catch (error) {
         console.error("Failed to fetch session:", error)
@@ -375,6 +439,22 @@ export default function CalendarPage() {
     }
     fetchSession()
   }, [])
+
+  useEffect(() => {
+    const fetchStores = async () => {
+      if (!isAdmin) return
+      try {
+        const res = await fetch("/api/stores")
+        if (res.ok) {
+          const data = await res.json()
+          setStores(data)
+        }
+      } catch (error) {
+        console.error("Failed to fetch stores:", error)
+      }
+    }
+    fetchStores()
+  }, [isAdmin])
 
   useEffect(() => {
     setCurrentDate(new Date())
@@ -453,10 +533,10 @@ export default function CalendarPage() {
     return event.title.includes("定休日") && event.store_name && event.store_name !== currentStoreName
   }
 
-  const getEventDisplayTitle = (event: CalendarEvent) => {
+const getEventDisplayTitle = (event: CalendarEvent) => {
     if (event.title.includes("定休日") && event.store_name) {
       const shortName = event.store_name.replace(/SPLASH'N'GO!\s*/, "").replace(/店$/, "")
-      return `${shortName}`
+      return `${shortName} 定休日`
     }
     return event.title
   }
@@ -618,15 +698,11 @@ export default function CalendarPage() {
                     {events
                       .filter((e) => e.date === selectedDate)
                       .map((event, index) => {
+                        // 店舗定休日（store_idがある）または通常イベント（idがnumber）の場合削除可能
+                        // 店舗定休日はadminのみ削除可能
+                        const isStoreHoliday = !!event.store_id
                         const isDbEvent = typeof event.id === "number"
-                        const canDelete = isDbEvent
-                        console.log("[v0] Event delete check:", {
-                          title: event.title,
-                          id: event.id,
-                          is_global: event.is_global,
-                          isDbEvent,
-                          canDelete,
-                        })
+                        const canDelete = (isStoreHoliday && isAdmin) || isDbEvent
 
                         return (
                           <div
@@ -642,7 +718,7 @@ export default function CalendarPage() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  handleDeleteEvent(event.id!)
+                                  handleDeleteEvent(event)
                                 }}
                                 className="flex items-center gap-1 px-2 py-1 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition-colors text-xs font-medium"
                               >
@@ -658,6 +734,52 @@ export default function CalendarPage() {
                 )}
               </div>
 
+              {/* Admin用: 店舗定休日追加フォーム */}
+              {isAdmin && (
+                <div className="p-4 border-b border-blue-100 space-y-3">
+                  <h4 className="text-sm font-medium text-gray-700">店舗定休日を追加</h4>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedStoreId}
+                      onChange={(e) => setSelectedStoreId(e.target.value)}
+                      className="flex-1 px-3 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 text-sm"
+                    >
+                      <option value="">店舗を選択</option>
+                      {stores.map((store) => {
+                        const shortName = store.store_name.replace(/^SPLASH'N'GO!/, "")
+                        const storeColor = STORE_COLOR_MAP[shortName] || "#6b7280"
+                        return (
+                          <option key={store.id} value={store.id} style={{ color: storeColor }}>
+                            {shortName}
+                          </option>
+                        )
+                      })}
+                    </select>
+                    <button
+                      onClick={addStoreHoliday}
+                      disabled={isAddingHoliday || !selectedStoreId}
+                      className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors text-sm"
+                    >
+                      {isAddingHoliday ? "追加中..." : "定休日追加"}
+                    </button>
+                  </div>
+                  {selectedStoreId && (
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{
+                          backgroundColor:
+                            STORE_COLOR_MAP[
+                              stores.find((s) => String(s.id) === selectedStoreId)?.store_name.replace(/^SPLASH'N'GO!/, "") || ""
+                            ] || "#6b7280",
+                        }}
+                      />
+                      <span>この色でカレンダーに表示されます</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* 新規イベント追加フォーム */}
               <div className="p-4 space-y-4">
                 <div>
@@ -670,7 +792,6 @@ export default function CalendarPage() {
                     className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
                   />
                 </div>
-                <div></div>
               </div>
               <div className="p-4 border-t border-blue-200 flex gap-3">
                 <button

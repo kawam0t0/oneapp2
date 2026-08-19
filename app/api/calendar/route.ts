@@ -1,19 +1,7 @@
-import mysql from "mysql2/promise"
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-
-const getConnection = async () => {
-  return await mysql.createConnection({
-    host: process.env.DB_HOST || "34.67.209.187",
-    port: Number.parseInt(process.env.DB_PORT || "3306"),
-    user: process.env.DB_USER || "your_username",
-    password: process.env.DB_PASSWORD || "your_password",
-    database: process.env.DB_NAME || "your_database",
-    ssl: {
-      rejectUnauthorized: false,
-    },
-  })
-}
+import { getConnection } from "@/lib/db"
+import type mysql from "mysql2/promise"
 
 const STORE_COLOR_MAP: { [key: string]: string } = {
   前橋50号: "#3b82f6",
@@ -33,16 +21,15 @@ const STORE_ID_TO_NAME: { [key: number]: string } = {
   6: "太田新田",
 }
 
-// weekOfMonth: 第何週か (1-5)
-// dayOfWeek: 曜日 (0=日, 1=月, 2=火, 3=水, 4=木, 5=金, 6=土)
-const STORE_HOLIDAY_RULES: { storeName: string; weekOfMonth: number; dayOfWeek: number }[] = [
-  { storeName: "足利緑町", weekOfMonth: 1, dayOfWeek: 2 }, // 第一火曜日
-  { storeName: "前橋50号", weekOfMonth: 1, dayOfWeek: 3 }, // 第一水曜日
-  { storeName: "高崎棟高", weekOfMonth: 2, dayOfWeek: 3 }, // 第二水曜日
-  { storeName: "伊勢崎韮塚", weekOfMonth: 2, dayOfWeek: 4 }, // 第二木曜日
-  { storeName: "太田新田", weekOfMonth: 3, dayOfWeek: 2 }, // 第三火曜日
-  { storeName: "新前橋", weekOfMonth: 3, dayOfWeek: 3 }, // 第三水曜日
-]
+// 店舗IDから店舗名への変換用（定休日表示用）
+const STORE_ID_TO_NAME_FOR_HOLIDAY: { [key: string]: string } = {
+  "1": "前橋50号",
+  "2": "伊勢崎韮塚",
+  "3": "高崎棟高",
+  "4": "足利緑町",
+  "5": "新前橋",
+  "6": "太田新田",
+}
 
 const ORDER_DAY_RULES: { month: number; title: string; color: string }[] = [
   { month: 2, title: "Tシャツ発注日", color: "#10b981" },
@@ -51,6 +38,8 @@ const ORDER_DAY_RULES: { month: number; title: string; color: string }[] = [
   { month: 9, title: "ベンチコート発注日", color: "#f59e0b" },
   { month: 11, title: "パーカー発注日", color: "#8b5cf6" },
 ]
+
+
 
 function getJapaneseHolidays(year: number): Set<string> {
   const holidays = new Set<string>()
@@ -255,64 +244,120 @@ function generateOrderDayEvents(year: number, month: number): any[] {
   return events
 }
 
-function generateStoreHolidayEvents(year: number, month: number): any[] {
+// DBから定休日を取得してイベントを生成（メンテナンス週間も生成）
+async function generateStoreHolidayEventsFromDB(
+  connection: mysql.Connection, 
+  year: number, 
+  month: number, 
+  storeId: number | null = null,
+  isAdmin: boolean = false
+): Promise<any[]> {
   const events: any[] = []
 
-  // 当年の祝日を取得
-  const holidays = getJapaneseHolidays(year)
+  try {
+    // 当月と前月の定休日を取得（前月の定休日からのメンテ週間が今月に表示される可能性があるため）
+    const prevMonth = month === 1 ? 12 : month - 1
+    const prevYear = month === 1 ? year - 1 : year
+    const startDate = `${prevYear}-${String(prevMonth).padStart(2, "0")}-01`
+    // 正しい月末日を計算（new Date(year, month, 0)で前月の最終日=当月の月末を取得）
+    const lastDay = new Date(year, month, 0).getDate()
+    const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`
 
-  // 既に割り当てられた日付を追跡
-  const assignedDates = new Set<string>()
-
-  // 定休日を順番に処理（第一火曜→第一水曜→第二火曜...の順）
-  const sortedRules = [...STORE_HOLIDAY_RULES].sort((a, b) => {
-    if (a.weekOfMonth !== b.weekOfMonth) return a.weekOfMonth - b.weekOfMonth
-    return a.dayOfWeek - b.dayOfWeek
-  })
-
-  for (const rule of sortedRules) {
-    // 本来の定休日を計算
-    const originalDateStr = getNthDayOfMonth(year, month, rule.dayOfWeek, rule.weekOfMonth)
-    const originalDate = new Date(originalDateStr + "T00:00:00")
-
-    // 月の範囲内かチェック
-    if (originalDate.getMonth() + 1 !== month) {
-      continue
+    // adminは全店舗、店舗アカウントは自店舗のみ
+    let query = `SELECT sh.id, sh.store_id, sh.holiday_date, s.store_name
+       FROM store_holidays sh
+       LEFT JOIN stores s ON sh.store_id = s.id
+       WHERE sh.holiday_date BETWEEN ? AND ?`
+    const params: any[] = [startDate, endDate]
+    
+    if (!isAdmin && storeId) {
+      query += ` AND sh.store_id = ?`
+      params.push(storeId)
     }
+    
+    query += ` ORDER BY sh.holiday_date ASC`
 
-    let finalDate: Date
-    let finalDateStr: string
+    console.log("[v0] store_holidays SQL:", query)
+    console.log("[v0] store_holidays params:", params)
+    console.log("[v0] isAdmin:", isAdmin, "storeId:", storeId)
+    const [rows] = await connection.execute(query, params)
+    console.log("[v0] store_holidays query result:", JSON.stringify(rows))
 
-    // 本来の日付が: 祝日、土日、または既に他店舗に割り当て済みかチェック
-    const isHoliday = holidays.has(originalDateStr)
-    const isWeekend = originalDate.getDay() === 0 || originalDate.getDay() === 6
-    const isAlreadyAssigned = assignedDates.has(originalDateStr)
+    for (const row of rows as any[]) {
+      const storeName = row.store_name || STORE_ID_TO_NAME_FOR_HOLIDAY[row.store_id] || `店舗${row.store_id}`
+      // SPLASH'N'GO!と末尾の「店」を除去してSTORE_COLOR_MAPのキーと一致させる
+      const shortStoreName = storeName.replace(/^SPLASH'N'GO!/, "").replace(/店$/, "")
+      const holidayDate = row.holiday_date instanceof Date 
+        ? row.holiday_date 
+        : new Date(row.holiday_date)
+      const dateStr = formatDate(holidayDate)
 
-    if (isHoliday || isWeekend || isAlreadyAssigned) {
-      // 次の平日に振り替え
-      finalDate = getNextWeekday(originalDate, holidays, assignedDates)
-      finalDateStr = formatDate(finalDate)
-    } else {
-      finalDate = originalDate
-      finalDateStr = originalDateStr
-    }
-
-    // この日付を使用済みとしてマーク
-    assignedDates.add(finalDateStr)
-
-    // 対象月のイベントのみ追加
-    if (finalDate.getMonth() + 1 === month) {
-      events.push({
-        id: `holiday-${rule.storeName}-${finalDateStr}`,
-        title: `${rule.storeName}定休日`,
-        date: finalDateStr,
-        color: STORE_COLOR_MAP[rule.storeName],
-        store_id: null,
-        is_global: true,
-        store_name: rule.storeName,
-        is_generated_holiday: true,
+      // 当月の定休日のみイベントとして追加
+      console.log("[v0] Processing holiday:", { 
+        row_id: row.id, 
+        holiday_date: row.holiday_date, 
+        holidayDate_month: holidayDate.getMonth() + 1, 
+        target_month: month,
+        holidayDate_year: holidayDate.getFullYear(),
+        target_year: year,
+        dateStr: dateStr 
       })
+      if (holidayDate.getMonth() + 1 === month && holidayDate.getFullYear() === year) {
+        console.log("[v0] Adding holiday event for:", dateStr)
+        events.push({
+          id: `db-holiday-${row.id}`,
+          title: `${shortStoreName}定休日`,
+          date: dateStr,
+          color: STORE_COLOR_MAP[shortStoreName] || "#ef4444",
+          store_id: String(row.store_id),
+          is_global: true,
+          store_name: shortStoreName,
+          is_generated_holiday: true,
+          is_db_holiday: true,
+          isStoreClosed: true,
+        })
+      }
+
+      // メンテナンス週間を生成（定休日の2週間後が属する月の1日〜7日）
+      // 例: 1/23が定休日 → +14日 = 2/6 → 2月の1〜7日がメンテ週間
+      const storeColor = STORE_COLOR_MAP[shortStoreName] || "#22c55e"
+      
+      // 定休日 + 14日
+      const baseDate = new Date(holidayDate)
+      baseDate.setDate(baseDate.getDate() + 14)
+      
+      // その月の1日を取得
+      const maintenanceStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1)
+      
+      // 1日〜7日をメンテ週間にする
+      for (let i = 0; i < 7; i++) {
+        const maintenanceDate = new Date(maintenanceStart)
+        maintenanceDate.setDate(maintenanceStart.getDate() + i)
+        
+        // 表示対象の年月のみ追加
+        if (maintenanceDate.getFullYear() === year && maintenanceDate.getMonth() + 1 === month) {
+          const maintDateStr = formatDate(maintenanceDate)
+          
+          // 重複チェック
+          const exists = events.some(e => e.date === maintDateStr && e.is_maintenance_week && e.store_id === String(row.store_id))
+          if (!exists) {
+            events.push({
+              id: `maintenance-${row.id}-${maintDateStr}`,
+              title: `メンテナンス週間`,
+              date: maintDateStr,
+              color: storeColor,
+              store_id: String(row.store_id),
+              is_global: false,
+              store_name: shortStoreName,
+              is_generated_holiday: false,
+              is_maintenance_week: true,
+            })
+          }
+        }
+      }
     }
+  } catch (error) {
+    console.error("Error fetching store holidays from DB:", error)
   }
 
   return events
@@ -367,83 +412,7 @@ function generateNewYearsEveEvent(year: number, month: number): any[] {
   return events
 }
 
-function generateMaintenanceWeekEvents(year: number, month: number, storeId: number | null): any[] {
-  const events: any[] = []
 
-  if (!storeId) return events
-
-  const storeName = STORE_ID_TO_NAME[storeId]
-  if (!storeName) return events
-
-  // ログインした店舗の定休日ルールを取得
-  const storeRule = STORE_HOLIDAY_RULES.find((rule) => rule.storeName === storeName)
-  if (!storeRule) return events
-
-  const holidays = getJapaneseHolidays(year)
-  const storeColor = STORE_COLOR_MAP[storeName] || "#6b7280"
-
-  // 当月と前月の定休日を確認してメンテナンス週間を計算
-  // 前月の定休日からのメンテナンス週間が今月にかかる可能性があるため
-  const monthsToCheck = [
-    { y: month === 1 ? year - 1 : year, m: month === 1 ? 12 : month - 1 },
-    { y: year, m: month },
-  ]
-
-  for (const { y, m } of monthsToCheck) {
-    // 本来の定休日を計算
-    const originalDateStr = getNthDayOfMonth(y, m, storeRule.dayOfWeek, storeRule.weekOfMonth)
-    const originalDate = new Date(originalDateStr + "T00:00:00")
-
-    // 定休日が祝日や週末の場合は振り替え後の日付を使用
-    const isHoliday = holidays.has(originalDateStr)
-    const isWeekend = originalDate.getDay() === 0 || originalDate.getDay() === 6
-
-    let holidayDate: Date
-    if (isHoliday || isWeekend) {
-      holidayDate = getNextWeekday(originalDate, holidays, new Set())
-    } else {
-      holidayDate = originalDate
-    }
-
-    // 定休日の2週間後の日付
-    const twoWeeksLater = new Date(holidayDate)
-    twoWeeksLater.setDate(twoWeeksLater.getDate() + 14)
-
-    // その日を含む週の日曜日を計算（週の開始日）
-    const dayOfWeek = twoWeeksLater.getDay() // 0=日, 1=月, ..., 6=土
-    const weekStartDate = new Date(twoWeeksLater)
-    weekStartDate.setDate(weekStartDate.getDate() - dayOfWeek) // 日曜日に戻す
-
-    // メンテナンス週間: 日曜日から土曜日までの7日間
-    for (let i = 0; i < 7; i++) {
-      const maintenanceDate = new Date(weekStartDate)
-      maintenanceDate.setDate(maintenanceDate.getDate() + i)
-
-      // 対象月のイベントのみ追加
-      if (maintenanceDate.getMonth() + 1 === month && maintenanceDate.getFullYear() === year) {
-        const dateStr = formatDate(maintenanceDate)
-
-        // 同じ日付のメンテナンス週間イベントが既にあるかチェック
-        const existingEvent = events.find((e) => e.date === dateStr)
-        if (!existingEvent) {
-          events.push({
-            id: `maintenance-${storeName}-${dateStr}`,
-            title: `メンテナンス週間`,
-            date: dateStr,
-            color: storeColor,
-            store_id: storeId,
-            is_global: false, // 店舗固有のイベント
-            store_name: storeName,
-            is_generated_holiday: false,
-            is_maintenance_week: true,
-          })
-        }
-      }
-    }
-  }
-
-  return events
-}
 
 // イベント取得
 export async function GET(request: Request) {
@@ -454,10 +423,13 @@ export async function GET(request: Request) {
     const month = Number(searchParams.get("month") || new Date().getMonth() + 1)
 
     const startDate = `${year}-${String(month).padStart(2, "0")}-01`
-    const endDate = `${year}-${String(month).padStart(2, "0")}-31`
+    // 正しい月末日を計算
+    const lastDayOfMonth = new Date(year, month, 0).getDate()
+    const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDayOfMonth).padStart(2, "0")}`
 
     const session = await getSessionStore()
     const storeId = session?.store_id
+    const isAdmin = String(session?.role).toLowerCase() === "admin" || session?.store_name === "admin"
 
     connection = await getConnection()
 
@@ -465,16 +437,30 @@ export async function GET(request: Request) {
 
     let rows
     if (hasStoreIdColumn) {
-      ;[rows] = await connection.execute(
-        `SELECT id, title, DATE_FORMAT(date, '%Y-%m-%d') as date, color, store_id, is_global 
-         FROM calendar_events 
-         WHERE date BETWEEN ? AND ? 
-         AND (is_global = TRUE OR is_global = 1 OR store_id = ?)
-         AND title NOT LIKE '%定休日%'
-         AND title NOT LIKE '%発注日%'
-         ORDER BY date ASC`,
-        [startDate, endDate, storeId],
-      )
+      if (isAdmin) {
+        // adminは全イベントを表示
+        ;[rows] = await connection.execute(
+          `SELECT id, title, DATE_FORMAT(date, '%Y-%m-%d') as date, color, store_id, is_global 
+           FROM calendar_events 
+           WHERE date BETWEEN ? AND ? 
+           AND title NOT LIKE '%定休日%'
+           AND title NOT LIKE '%発注日%'
+           ORDER BY date ASC`,
+          [startDate, endDate],
+        )
+      } else {
+        // 店舗アカウントは自店舗 + グローバルイベントのみ
+        ;[rows] = await connection.execute(
+          `SELECT id, title, DATE_FORMAT(date, '%Y-%m-%d') as date, color, store_id, is_global 
+           FROM calendar_events 
+           WHERE date BETWEEN ? AND ? 
+           AND (is_global = TRUE OR is_global = 1 OR store_id = ?)
+           AND title NOT LIKE '%定休日%'
+           AND title NOT LIKE '%発注日%'
+           ORDER BY date ASC`,
+          [startDate, endDate, storeId],
+        )
+      }
     } else {
       ;[rows] = await connection.execute(
         `SELECT id, title, DATE_FORMAT(date, '%Y-%m-%d') as date, color 
@@ -501,13 +487,15 @@ export async function GET(request: Request) {
       }
     })
 
-    const holidayEvents = generateStoreHolidayEvents(year, month)
+    const holidayEvents = await generateStoreHolidayEventsFromDB(connection, year, month, storeId, isAdmin)
+    console.log("[v0] holidayEvents count:", holidayEvents.length)
+    console.log("[v0] holidayEvents:", JSON.stringify(holidayEvents))
     const orderDayEvents = generateOrderDayEvents(year, month)
     const newYearsEveEvents = generateNewYearsEveEvent(year, month)
-    const maintenanceWeekEvents = generateMaintenanceWeekEvents(year, month, storeId)
 
-    // DBイベントと自動生成イベントを結合
-    const allEvents = [...dbEvents, ...holidayEvents, ...orderDayEvents, ...newYearsEveEvents, ...maintenanceWeekEvents]
+    // DBイベントと自動生成イベントを結合（メンテナンス週間は holidayEvents に含まれる）
+    const allEvents = [...dbEvents, ...holidayEvents, ...orderDayEvents, ...newYearsEveEvents]
+    console.log("[v0] allEvents count:", allEvents.length)
 
     // 日付順でソート
     allEvents.sort((a, b) => a.date.localeCompare(b.date))
@@ -538,6 +526,7 @@ export async function POST(request: Request) {
 
     const storeId = session.store_id
     const storeName = session.store_name
+    const isAdmin = String(session.role).toLowerCase() === "admin" || storeName === "admin"
     const storeColor = STORE_COLOR_MAP[storeName] || color || "#3b82f6"
 
     connection = await getConnection()
@@ -545,9 +534,11 @@ export async function POST(request: Request) {
     const hasStoreIdColumn = await checkColumnExists(connection)
 
     if (hasStoreIdColumn) {
+      // adminが追加したイベントはis_global = TRUEで全店舗に表示
+      const isGlobal = isAdmin ? true : false
       await connection.execute(
-        "INSERT INTO calendar_events (title, date, color, store_id, is_global) VALUES (?, ?, ?, ?, FALSE)",
-        [title, date, storeColor, storeId],
+        "INSERT INTO calendar_events (title, date, color, store_id, is_global) VALUES (?, ?, ?, ?, ?)",
+        [title, date, storeColor, storeId, isGlobal],
       )
     } else {
       await connection.execute("INSERT INTO calendar_events (title, date, color) VALUES (?, ?, ?)", [
@@ -578,12 +569,19 @@ export async function DELETE(request: Request) {
     }
 
     if (
-      id.startsWith("holiday-") ||
       id.startsWith("order-") ||
       id.startsWith("nye-") ||
       id.startsWith("maintenance-")
     ) {
       return NextResponse.json({ error: "Cannot delete generated events" }, { status: 400 })
+    }
+
+    // DB定休日の削除
+    if (id.startsWith("db-holiday-")) {
+      const holidayId = id.replace("db-holiday-", "")
+      connection = await getConnection()
+      await connection.execute("DELETE FROM store_holidays WHERE id = ?", [holidayId])
+      return NextResponse.json({ success: true })
     }
 
     const session = await getSessionStore()

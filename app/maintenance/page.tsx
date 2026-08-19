@@ -11,9 +11,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, FileText, Download, ArrowLeft, ImageIcon, Trash2 } from "lucide-react"
+import { Plus, FileText, Download, ArrowLeft, ImageIcon, Trash2, Upload } from "lucide-react"
 import { MaintenanceImageGenerator } from "@/components/maintenance-image-generator"
 import { SingleStoreMaintenanceImageGenerator } from "@/components/single-store-maintenance-image-generator"
+import { InstagramImageGenerator } from "@/components/instagram-image-generator"
 import { useToast } from "@/hooks/use-toast"
 
 interface MaintenanceRecord {
@@ -44,11 +45,107 @@ export default function MaintenancePage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isImageGeneratorOpen, setIsImageGeneratorOpen] = useState(false)
   const [isSingleStoreImageGeneratorOpen, setIsSingleStoreImageGeneratorOpen] = useState(false)
+  const [isInstagramImageGeneratorOpen, setIsInstagramImageGeneratorOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isSheetUploadDialogOpen, setIsSheetUploadDialogOpen] = useState(false)
+  const [sheetFile, setSheetFile] = useState<File | null>(null)
+  const [isUploadingSheet, setIsUploadingSheet] = useState(false)
+  const [hasMaintenanceSheet, setHasMaintenanceSheet] = useState(false)
 
   const titleOptions = ["マンスリーメンテナンス結果報告", "定期メンテナンス結果報告"]
 
   const { toast } = useToast()
+
+  const fetchMaintenanceSheet = async () => {
+    try {
+      const response = await fetch("/api/maintenance-sheet")
+      if (response.ok) {
+        const data = await response.json()
+        setHasMaintenanceSheet(!!data.sheet)
+      }
+    } catch (error) {
+      console.error("Error fetching maintenance sheet:", error)
+    }
+  }
+
+  const handleSheetUpload = async () => {
+    if (!sheetFile) return
+
+    setIsUploadingSheet(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", sheetFile)
+
+      const response = await fetch("/api/maintenance-sheet", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (response.ok) {
+        toast({
+          title: "アップロード成功",
+          description: "メンテシートをアップロードしました",
+        })
+        setSheetFile(null)
+        setIsSheetUploadDialogOpen(false)
+        fetchMaintenanceSheet()
+      } else {
+        const errorData = await response.json()
+        toast({
+          title: "アップロード失敗",
+          description: errorData.error || "アップロードに失敗しました",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error uploading sheet:", error)
+      toast({
+        title: "エラー",
+        description: "アップロード中にエラーが発生しました",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploadingSheet(false)
+    }
+  }
+
+  const handleSheetDelete = async () => {
+    if (!confirm("メンテシートを削除してもよろしいですか？")) {
+      return
+    }
+
+    try {
+      const response = await fetch("/api/maintenance-sheet", {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        toast({
+          title: "削除成功",
+          description: "メンテシートを削除しました",
+        })
+        fetchMaintenanceSheet()
+      } else {
+        const errorData = await response.json()
+        toast({
+          title: "削除失敗",
+          description: errorData.error || "削除に失敗しました",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error deleting sheet:", error)
+      toast({
+        title: "エラー",
+        description: "削除中にエラーが発生しました",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleSheetDownload = () => {
+    window.open("/api/maintenance-sheet/download", "_blank")
+  }
 
   const handleDelete = async (recordId: number) => {
     if (!confirm("このメンテナンス履歴を削除してもよろしいですか？")) {
@@ -124,6 +221,7 @@ export default function MaintenancePage() {
 
     fetchData()
     fetchStores()
+    fetchMaintenanceSheet()
   }, [])
 
   const fetchStores = async () => {
@@ -220,22 +318,45 @@ export default function MaintenancePage() {
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
             {isAdmin ? (
-              <Button
-                onClick={() => setIsImageGeneratorOpen(true)}
-                variant="outline"
-                className="border-blue-600 text-blue-600 hover:bg-blue-50 w-full sm:w-auto"
-              >
-                <ImageIcon className="w-4 h-4 mr-2" />
-                メンテ画像生成
-              </Button>
+              <>
+                <Button
+                  onClick={() => setIsImageGeneratorOpen(true)}
+                  variant="outline"
+                  className="border-blue-600 text-blue-600 hover:bg-blue-50 w-full sm:w-auto"
+                >
+                  <ImageIcon className="w-4 h-4 mr-2" />
+                  メンテ画像生成
+                </Button>
+              </>
             ) : (
+              <>
+                <Button
+                  onClick={() => setIsInstagramImageGeneratorOpen(true)}
+                  variant="outline"
+                  className="border-purple-500 text-purple-500 hover:bg-purple-50 w-full sm:w-auto"
+                >
+                  <ImageIcon className="w-4 h-4 mr-2" />
+                  インスタ画像生成
+                </Button>
+                <Button
+                  onClick={() => setIsSingleStoreImageGeneratorOpen(true)}
+                  variant="outline"
+                  className="border-blue-600 text-blue-600 hover:bg-blue-50 w-full sm:w-auto"
+                >
+                  <ImageIcon className="w-4 h-4 mr-2" />
+                  メンテ画像生成
+                </Button>
+              </>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            {!isAdmin && (
               <Button
-                onClick={() => setIsSingleStoreImageGeneratorOpen(true)}
-                variant="outline"
-                className="border-blue-600 text-blue-600 hover:bg-blue-50 w-full sm:w-auto"
+                onClick={handleSheetDownload}
+                className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
               >
-                <ImageIcon className="w-4 h-4 mr-2" />
-                メンテ画像生成
+                <Download className="w-4 h-4 mr-2" />
+                メンテシートダウンロード
               </Button>
             )}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -312,6 +433,58 @@ export default function MaintenancePage() {
                 </form>
               </DialogContent>
             </Dialog>
+            {isAdmin && (
+              <>
+                <Dialog open={isSheetUploadDialogOpen} onOpenChange={setIsSheetUploadDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto">
+                      <Upload className="w-4 h-4 mr-2" />
+                      メンテシートアップ
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="border-t-4 border-t-blue-600">
+                    <DialogHeader className="bg-blue-50 -mx-6 -mt-6 px-6 py-4 rounded-t-lg">
+                      <DialogTitle className="text-blue-800">メンテシートをアップロード</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="sheetFile" className="text-blue-800 font-medium">
+                          PDFファイル
+                        </Label>
+                        <Input
+                          id="sheetFile"
+                          type="file"
+                          accept=".pdf"
+                          onChange={(e) => setSheetFile(e.target.files?.[0] || null)}
+                          className="border-blue-200 focus:border-blue-500 focus:ring-blue-500"
+                        />
+                        {sheetFile && <p className="text-sm text-blue-600">選択済み: {sheetFile.name}</p>}
+                      </div>
+                      <div className="flex justify-end gap-2 pt-2">
+                        <Button type="button" variant="outline" onClick={() => setIsSheetUploadDialogOpen(false)}>
+                          キャンセル
+                        </Button>
+                        <Button
+                          onClick={handleSheetUpload}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                          disabled={isUploadingSheet || !sheetFile}
+                        >
+                          {isUploadingSheet ? "アップロード中..." : "アップロード"}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                <Button
+                  onClick={handleSheetDelete}
+                  className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto"
+                  disabled={!hasMaintenanceSheet}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  メンテシート削除
+                </Button>
+              </>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -451,11 +624,18 @@ export default function MaintenancePage() {
       )}
 
       {!isAdmin && (
-        <SingleStoreMaintenanceImageGenerator
-          isOpen={isSingleStoreImageGeneratorOpen}
-          onClose={() => setIsSingleStoreImageGeneratorOpen(false)}
-          storeName={storeName}
-        />
+        <>
+          <SingleStoreMaintenanceImageGenerator
+            isOpen={isSingleStoreImageGeneratorOpen}
+            onClose={() => setIsSingleStoreImageGeneratorOpen(false)}
+            storeName={storeName}
+          />
+          <InstagramImageGenerator
+            isOpen={isInstagramImageGeneratorOpen}
+            onClose={() => setIsInstagramImageGeneratorOpen(false)}
+            storeName={storeName}
+          />
+        </>
       )}
     </div>
   )

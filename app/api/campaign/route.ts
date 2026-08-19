@@ -1,18 +1,8 @@
 import { NextResponse } from "next/server"
-import mysql from "mysql2/promise"
+import { getConnection } from "@/lib/db"
+import type mysql from "mysql2/promise"
 
-const getConnection = async () => {
-  return await mysql.createConnection({
-    host: process.env.DB_HOST || "34.67.209.187",
-    port: Number.parseInt(process.env.DB_PORT || "3306"),
-    user: process.env.DB_USER || "your_username",
-    password: process.env.DB_PASSWORD || "your_password",
-    database: process.env.DB_NAME || "your_database_name",
-    ssl: {
-      rejectUnauthorized: false,
-    },
-  })
-}
+export const runtime = 'nodejs'
 
 const parseDateToString = (dateValue: any): string => {
   if (dateValue instanceof Date) {
@@ -248,6 +238,93 @@ export async function GET() {
       ORDER BY count DESC
     `)
 
+    // 鹿児島中山店: キャンペーン期間 2026/03/19〜2026/04/19
+    // storeカラムに "鹿児島中山店" が含まれるデータを取得
+    const [kagoshimaPosRows] = await connection.execute(`
+      SELECT details, COUNT(*) as count 
+      FROM onetime 
+      WHERE store LIKE '%鹿児島中山店%' 
+        AND date >= '2026-03-19' 
+        AND date <= '2026-04-19'
+      GROUP BY details
+      ORDER BY count DESC
+    `)
+
+    const [kagoshimaSubscRows] = await connection.execute(`
+      SELECT COUNT(*) as count 
+      FROM invoice 
+      WHERE store LIKE '%鹿児島中山店%' 
+        AND Date >= '2026-03-19' 
+        AND Date <= '2026-04-19'
+    `)
+
+    const [kagoshimaSubscSales] = await connection.execute(`
+      SELECT SUM(total_net_amount) as total_sales 
+      FROM invoice 
+      WHERE store LIKE '%鹿児島中山店%' 
+        AND Date >= '2026-03-19' 
+        AND Date <= '2026-04-19'
+    `)
+
+    const [kagoshimaOnetimeSales] = await connection.execute(`
+      SELECT SUM(total_net_amount) as total_sales 
+      FROM onetime 
+      WHERE store LIKE '%鹿児島中山店%' 
+        AND date >= '2026-03-19' 
+        AND date <= '2026-04-19'
+    `)
+
+    const [kagoshimaMarchSubscSales] = await connection.execute(`
+      SELECT SUM(total_net_amount) as total_sales 
+      FROM invoice 
+      WHERE store LIKE '%鹿児島中山店%' 
+        AND Date >= '2026-03-19' 
+        AND Date <= '2026-03-31'
+    `)
+
+    const [kagoshimaMarchOnetimeSales] = await connection.execute(`
+      SELECT SUM(total_net_amount) as total_sales 
+      FROM onetime 
+      WHERE store LIKE '%鹿児島中山店%' 
+        AND date >= '2026-03-19' 
+        AND date <= '2026-03-31'
+    `)
+
+    const [kagoshimaAprilSubscSales] = await connection.execute(`
+      SELECT SUM(total_net_amount) as total_sales 
+      FROM invoice 
+      WHERE store LIKE '%鹿児島中山店%' 
+        AND Date >= '2026-04-01' 
+        AND Date <= '2026-04-19'
+    `)
+
+    const [kagoshimaAprilOnetimeSales] = await connection.execute(`
+      SELECT SUM(total_net_amount) as total_sales 
+      FROM onetime 
+      WHERE store LIKE '%鹿児島中山店%' 
+        AND date >= '2026-04-01' 
+        AND date <= '2026-04-19'
+    `)
+
+    // 鹿児島中山店 週別データ（storeカラムにLIKE検索）
+    const kagoshimaWeeklySubsc = await getWeeklyData(
+      connection,
+      "invoice",
+      null,
+      "2026-03-19",
+      "2026-04-19",
+      "store LIKE '%鹿児島中山店%'",
+    )
+
+    const kagoshimaWeeklyPos = await getWeeklyData(
+      connection,
+      "onetime",
+      null,
+      "2026-03-19",
+      "2026-04-19",
+      "store LIKE '%鹿児島中山店%'",
+    )
+
     // 週別サブスク入会数
     const ashikagaWeekly = await getWeeklyData(
       connection,
@@ -305,6 +382,14 @@ export async function GET() {
     const refundTotal = (otaShintaRefundRows as any[]).reduce((sum: number, row: any) => sum + Number(row.count), 0)
     const subscNetTotal = subscTotal - refundTotal
 
+    const kagoshimaSubscCount = Number((kagoshimaSubscRows as any[])[0]?.count || 0)
+    const kagoshimaSubscSalesTotal = Number((kagoshimaSubscSales as any[])[0]?.total_sales || 0)
+    const kagoshimaOnetimeSalesTotal = Number((kagoshimaOnetimeSales as any[])[0]?.total_sales || 0)
+    const kagoshimaMarchSub = Number((kagoshimaMarchSubscSales as any[])[0]?.total_sales || 0)
+    const kagoshimaMarchOne = Number((kagoshimaMarchOnetimeSales as any[])[0]?.total_sales || 0)
+    const kagoshimaAprilSub = Number((kagoshimaAprilSubscSales as any[])[0]?.total_sales || 0)
+    const kagoshimaAprilOne = Number((kagoshimaAprilOnetimeSales as any[])[0]?.total_sales || 0)
+
     return NextResponse.json({
       ashikaga: {
         storeName: "SPLASH'N'GO!足利緑町店",
@@ -335,6 +420,20 @@ export async function GET() {
         subscNetTotal: subscNetTotal,
         weeklySubsc: otaShintaWeekly,
         weeklyPos: otaShintaWeeklyPos,
+      },
+      kagoshima: {
+        storeName: "スプラッシュンゴー鹿児島中山店",
+        period: "2026/03/19〜2026/04/19",
+        posItems: kagoshimaPosRows as any[],
+        subscCount: kagoshimaSubscCount,
+        subscSalesTotal: kagoshimaSubscSalesTotal,
+        onetimeSalesTotal: kagoshimaOnetimeSalesTotal,
+        marchSub: kagoshimaMarchSub,
+        marchOne: kagoshimaMarchOne,
+        aprilSub: kagoshimaAprilSub,
+        aprilOne: kagoshimaAprilOne,
+        weeklySubsc: kagoshimaWeeklySubsc,
+        weeklyPos: kagoshimaWeeklyPos,
       },
     })
   } catch (error) {

@@ -1,17 +1,23 @@
 import { NextResponse } from "next/server"
-import mysql from "mysql2/promise"
+import { getConnection } from "@/lib/db"
 
-const getConnection = async () => {
-  return await mysql.createConnection({
-    host: process.env.DB_HOST || "34.67.209.187",
-    port: Number.parseInt(process.env.DB_PORT || "3306"),
-    user: process.env.DB_USER || "your_username",
-    password: process.env.DB_PASSWORD || "your_password",
-    database: process.env.DB_NAME || "your_database_name",
-    ssl: {
-      rejectUnauthorized: false,
-    },
-  })
+export const runtime = 'nodejs'
+
+// シンプルなメモリキャッシュ（30秒）
+// 同時アクセス時のDB負荷を削減しつつ、ほぼリアルタイムを維持
+const cache = new Map<string, { data: any; timestamp: number }>()
+const CACHE_TTL = 30 * 1000 // 30秒
+
+function getCached(key: string) {
+  const cached = cache.get(key)
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data
+  }
+  return null
+}
+
+function setCache(key: string, data: any) {
+  cache.set(key, { data, timestamp: Date.now() })
 }
 
 const categorizeItem = (details: string): string | null => {
@@ -33,15 +39,23 @@ const categorizeCourse = (details: string): string | null => {
   if (details.includes("プレミアム") || details.includes("月額980円")) return "プレミアム"
   if (details.includes("プラス")) return "プラス"
   if (details.includes("ナイアガラ")) return "ナイアガラ"
-  if (details.includes("セラミック")) return "セラミック"
+  // セラミックとデラックスは同じコース。表示名は「デラックス」に統一
+  if (details.includes("セラミック") || details.includes("デラックス")) return "デラックス"
   return null
+}
+
+function normalizeStoreName(name: string): string {
+  // \s* でスペースあり・なし両方を「スプラッシュンゴー」に統一
+  // 例: "スプラッシュンゴー 鹿児島中山店" → "スプラッシュンゴー鹿児島中山店"
+  //     "スプラッシュンゴー鹿児島中山店"  → "スプラッシュンゴー鹿児島中山店"（変化なし）
+  return name.replace(/^スプラッシュンゴー\s*/, "スプラッシュンゴー")
 }
 
 const aggregateData = (rows: any[]) => {
   const storeMap = new Map<string, { items: { [key: string]: number }; total: number }>()
 
   rows.forEach((row) => {
-    const store = row.store
+    const store = row.store ? normalizeStoreName(row.store.toString()) : row.store
     const details = row.details
     const count = row.count
 
@@ -54,6 +68,11 @@ const aggregateData = (rows: any[]) => {
     }
     const storeData = storeMap.get(store)!
     storeData.total += count
+
+    if (!details || typeof details !== "string") {
+      storeData.items["その他"] = (storeData.items["その他"] || 0) + count
+      return
+    }
 
     const items = details.split(",").map((item: string) => item.trim())
 
@@ -86,6 +105,8 @@ const STORE_ORDER = [
   "SPLASH'N'GO!足利緑町店",
   "SPLASH'N'GO!新前橋店",
   "SPLASH'N'GO!太田新田店",
+  "スプラッシュンゴー鹿児島中山店",
+  "スプラッシュンゴー藤岡大塚店",
 ]
 
 export async function GET(request: Request) {
@@ -93,6 +114,15 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const period = searchParams.get("period") || "2025-11"
     const categoriesOnly = searchParams.get("categories") === "true"
+
+    // キャッシュキーを生成
+    const cacheKey = `dashboard-${period}-${categoriesOnly}`
+    
+    // キャッシュがあれば即座に返す（DB触らない）
+    const cachedData = getCached(cacheKey)
+    if (cachedData) {
+      return NextResponse.json(cachedData)
+    }
 
     const [year, month] = period.split("-")
 
@@ -122,7 +152,8 @@ export async function GET(request: Request) {
 
       const storeMap = new Map<string, { courses: Map<string, number>; total: number }>()
       ;(categoryRows as any[]).forEach((row) => {
-        const store = row.store
+        // normalizeStoreName でスペースあり・なし両表記を統一する
+        const store = row.store ? normalizeStoreName(row.store.toString()) : row.store
         const course = categorizeCourse(row.details)
         const count = Number(row.count)
 
@@ -156,65 +187,59 @@ export async function GET(request: Request) {
         }
       })
 
-      return NextResponse.json({
+      const responseData = {
         storeCategories,
-      })
+      }
+      
+      // キャッシュに保存
+      setCache(cacheKey, responseData)
+
+      return NextResponse.json(responseData)
     }
 
+    // onetime_monthly_summary から高速取得（集計テーブル経由）
+    // 旧: onetimeテーブル直接GROUP BY → フルスキャン・重い
+    // 新: 事前集計テーブルを参照 → 数十行スキャン・数ms
+    const yearMonth = `${year}-${month}`
     const [monthlyRows] = await connection.execute(
-      `SELECT store, details, COUNT(*) as count 
-       FROM onetime 
-       WHERE date >= ? AND date <= ?
-       AND (card_entry_method IS NULL OR card_entry_method != 'KEYED')
-       GROUP BY store, details
-       ORDER BY store, details`,
-      [startDate, endDateStr],
+      `SELECT store, total_count as count
+       FROM onetime_monthly_summary
+       WHERE \`year_month\` = ?`,
+      [yearMonth],
     )
 
     const [todayRows] = await connection.execute(
-      `SELECT store, details, COUNT(*) as count 
+      `SELECT store, COUNT(*) as count 
        FROM onetime 
        WHERE date = ?
-       AND (card_entry_method IS NULL OR card_entry_method != 'KEYED')
-       GROUP BY store, details
-       ORDER BY store, details`,
+       AND IFNULL(card_entry_method, '') != 'KEYED'
+       GROUP BY store`,
       [todayStr],
     )
 
     const [yesterdayRows] = await connection.execute(
-      `SELECT store, details, COUNT(*) as count 
+      `SELECT store, COUNT(*) as count 
        FROM onetime 
        WHERE date = ?
-       AND (card_entry_method IS NULL OR card_entry_method != 'KEYED')
-       GROUP BY store, details
-       ORDER BY store, details`,
+       AND IFNULL(card_entry_method, '') != 'KEYED'
+       GROUP BY store`,
       [yesterdayStr],
     )
 
     const [monthlyOnetimeSales] = await connection.execute(
-      `SELECT store, SUM(total_net_amount) as total_sales
-       FROM onetime 
-       WHERE date >= ? AND date <= ?
-       AND (card_entry_method IS NULL OR card_entry_method != 'KEYED')
-       GROUP BY store`,
-      [startDate, endDateStr],
+      `SELECT store, total_sales
+       FROM onetime_monthly_summary
+       WHERE \`year_month\` = ?`,
+      [yearMonth],
     )
 
     const [todayOnetimeSales] = await connection.execute(
       `SELECT store, SUM(total_net_amount) as total_sales
        FROM onetime 
        WHERE date = ?
-       AND (card_entry_method IS NULL OR card_entry_method != 'KEYED')
+       AND IFNULL(card_entry_method, '') != 'KEYED'
        GROUP BY store`,
       [todayStr],
-    )
-
-    const [monthlySubscSales] = await connection.execute(
-      `SELECT store, SUM(total_net_amount) as total_sales
-       FROM invoice 
-       WHERE Date >= ? AND Date <= ?
-       GROUP BY store`,
-      [startDate, endDateStr],
     )
 
     const [todaySubscSales] = await connection.execute(
@@ -225,79 +250,47 @@ export async function GET(request: Request) {
       [todayStr],
     )
 
+    // invoice_monthly_summaryから高速取得（集計テーブル経由）
+    // 旧クエリ: invoiceテーブルを直接GROUP BY → 平均171,462行スキャン・567ms
+    // 新クエリ: 事前集計テーブルを参照 → 数十行スキャン・数ms
+    const twelveMonthsAgoDate = new Date(Number.parseInt(year), Number.parseInt(month) - 1 - 11, 1)
+    const graphStartYearMonth = `${twelveMonthsAgoDate.getFullYear()}-${String(twelveMonthsAgoDate.getMonth() + 1).padStart(2, "0")}`
+    const graphEndYearMonth = `${year}-${month}`
+
     const [invoiceRows] = await connection.execute(
       `SELECT 
-         DATE_FORMAT(Date, '%Y-%m') as month,
+         \`year_month\` as month,
          store,
-         COUNT(*) as count
-       FROM invoice
-       WHERE Date >= DATE_SUB(?, INTERVAL 11 MONTH)
-         AND Date <= LAST_DAY(?)
-       GROUP BY DATE_FORMAT(Date, '%Y-%m'), store
-       ORDER BY month ASC, store`,
-      [startDate, endDateStr],
+         total_count as count
+       FROM invoice_monthly_summary
+       WHERE \`year_month\` >= ?
+         AND \`year_month\` <= ?
+       ORDER BY \`year_month\` ASC, store`,
+      [graphStartYearMonth, graphEndYearMonth],
     )
 
-    const currentMonthStart = `${year}-${month}-01`
-    const currentMonthEnd = `${year}-${month}-${String(currentDay).padStart(2, "0")}`
+    // 当月・前月の year_month を算出
+    const currentYearMonth = `${year}-${month}`
+    const prevMonthNum = Number.parseInt(month) === 1 ? 12 : Number.parseInt(month) - 1
+    const prevYearNum  = Number.parseInt(month) === 1 ? Number.parseInt(year) - 1 : Number.parseInt(year)
+    const prevYearMonth = `${prevYearNum}-${String(prevMonthNum).padStart(2, "0")}`
 
-    const prevMonth = Number.parseInt(month) === 1 ? 12 : Number.parseInt(month) - 1
-    const prevYear = Number.parseInt(month) === 1 ? Number.parseInt(year) - 1 : Number.parseInt(year)
-    const prevMonthStart = `${prevYear}-${String(prevMonth).padStart(2, "0")}-01`
-    const prevMonthEnd = `${prevYear}-${String(prevMonth).padStart(2, "0")}-${String(currentDay).padStart(2, "0")}`
-
-    const [currentSourceCount] = await connection.execute(
-      `SELECT store, COUNT(*) as count
-       FROM invoice 
-       WHERE Date >= ? AND Date <= ?
-       AND source = '請求書'
-       GROUP BY store`,
-      [currentMonthStart, currentMonthEnd],
+    // 当月: invoice_monthly_summary から高速取得（集計テーブル経由）
+    // 旧: invoiceテーブル直接CASE集計 → 20,583行スキャン・97ms
+    // 新: 事前集計テーブルを参照 → 数十行スキャン・数ms
+    const [currentInvoiceRows] = await connection.execute(
+      `SELECT store, source_count, on_file_count, keyed_count, total_sales
+       FROM invoice_monthly_summary
+       WHERE \`year_month\` = ?`,
+      [currentYearMonth],
     )
 
-    const [currentOnFileCount] = await connection.execute(
-      `SELECT store, COUNT(*) as count
-       FROM invoice 
-       WHERE Date >= ? AND Date <= ?
-       AND card_entry_method = 'ON_FILE'
-       GROUP BY store`,
-      [currentMonthStart, currentMonthEnd],
-    )
-
-    const [currentKeyedCount] = await connection.execute(
-      `SELECT store, COUNT(*) as count
-       FROM invoice 
-       WHERE Date >= ? AND Date <= ?
-       AND card_entry_method = 'KEYED'
-       GROUP BY store`,
-      [currentMonthStart, currentMonthEnd],
-    )
-
-    const [prevSourceCount] = await connection.execute(
-      `SELECT store, COUNT(*) as count
-       FROM invoice 
-       WHERE Date >= ? AND Date <= ?
-       AND source = '請求書'
-       GROUP BY store`,
-      [prevMonthStart, prevMonthEnd],
-    )
-
-    const [prevOnFileCount] = await connection.execute(
-      `SELECT store, COUNT(*) as count
-       FROM invoice 
-       WHERE Date >= ? AND Date <= ?
-       AND card_entry_method = 'ON_FILE'
-       GROUP BY store`,
-      [prevMonthStart, prevMonthEnd],
-    )
-
-    const [prevKeyedCount] = await connection.execute(
-      `SELECT store, COUNT(*) as count
-       FROM invoice 
-       WHERE Date >= ? AND Date <= ?
-       AND card_entry_method = 'KEYED'
-       GROUP BY store`,
-      [prevMonthStart, prevMonthEnd],
+    // 前月: invoice_monthly_summary から高速取得（集計テーブル経由）
+    const [prevInvoiceRows] = await connection.execute(
+      `SELECT store, source_count, on_file_count, keyed_count
+       FROM invoice_monthly_summary
+       WHERE \`year_month\` = ?`,
+      [prevYearMonth],
     )
 
     await connection.end()
@@ -309,70 +302,49 @@ export async function GET(request: Request) {
     const monthlyOnetimeSalesMap = new Map<string, number>()
     ;(monthlyOnetimeSales as any[]).forEach((row) => {
       if (row.store && row.store !== "0" && row.store.trim() !== "") {
-        monthlyOnetimeSalesMap.set(row.store, Number(row.total_sales) || 0)
+        monthlyOnetimeSalesMap.set(normalizeStoreName(row.store), Number(row.total_sales) || 0)
       }
     })
 
     const todayOnetimeSalesMap = new Map<string, number>()
     ;(todayOnetimeSales as any[]).forEach((row) => {
       if (row.store && row.store !== "0" && row.store.trim() !== "") {
-        todayOnetimeSalesMap.set(row.store, Number(row.total_sales) || 0)
-      }
-    })
-
-    const monthlySubscSalesMap = new Map<string, number>()
-    ;(monthlySubscSales as any[]).forEach((row) => {
-      if (row.store && row.store !== "0" && row.store.trim() !== "") {
-        monthlySubscSalesMap.set(row.store, Number(row.total_sales) || 0)
+        todayOnetimeSalesMap.set(normalizeStoreName(row.store), Number(row.total_sales) || 0)
       }
     })
 
     const todaySubscSalesMap = new Map<string, number>()
     ;(todaySubscSales as any[]).forEach((row) => {
       if (row.store && row.store !== "0" && row.store.trim() !== "") {
-        todaySubscSalesMap.set(row.store, Number(row.total_sales) || 0)
+        todaySubscSalesMap.set(normalizeStoreName(row.store), Number(row.total_sales) || 0)
       }
     })
 
+    // 当月: currentInvoiceRows から source・ON_FILE・KEYED・売上 を一括展開
+    const monthlySubscSalesMap = new Map<string, number>()
     const currentSourceMap = new Map<string, number>()
-    ;(currentSourceCount as any[]).forEach((row) => {
-      if (row.store && row.store !== "0" && row.store.trim() !== "") {
-        currentSourceMap.set(row.store, Number(row.count) || 0)
-      }
-    })
-
     const currentOnFileMap = new Map<string, number>()
-    ;(currentOnFileCount as any[]).forEach((row) => {
-      if (row.store && row.store !== "0" && row.store.trim() !== "") {
-        currentOnFileMap.set(row.store, Number(row.count) || 0)
-      }
-    })
-
     const currentKeyedMap = new Map<string, number>()
-    ;(currentKeyedCount as any[]).forEach((row) => {
+    ;(currentInvoiceRows as any[]).forEach((row) => {
       if (row.store && row.store !== "0" && row.store.trim() !== "") {
-        currentKeyedMap.set(row.store, Number(row.count) || 0)
+        const key = normalizeStoreName(row.store)
+        monthlySubscSalesMap.set(key, Number(row.total_sales) || 0)
+        currentSourceMap.set(key, Number(row.source_count) || 0)
+        currentOnFileMap.set(key, Number(row.on_file_count) || 0)
+        currentKeyedMap.set(key, Number(row.keyed_count) || 0)
       }
     })
 
+    // 前月: prevInvoiceRows から source・ON_FILE・KEYED を一括展開
     const prevSourceMap = new Map<string, number>()
-    ;(prevSourceCount as any[]).forEach((row) => {
-      if (row.store && row.store !== "0" && row.store.trim() !== "") {
-        prevSourceMap.set(row.store, Number(row.count) || 0)
-      }
-    })
-
     const prevOnFileMap = new Map<string, number>()
-    ;(prevOnFileCount as any[]).forEach((row) => {
-      if (row.store && row.store !== "0" && row.store.trim() !== "") {
-        prevOnFileMap.set(row.store, Number(row.count) || 0)
-      }
-    })
-
     const prevKeyedMap = new Map<string, number>()
-    ;(prevKeyedCount as any[]).forEach((row) => {
+    ;(prevInvoiceRows as any[]).forEach((row) => {
       if (row.store && row.store !== "0" && row.store.trim() !== "") {
-        prevKeyedMap.set(row.store, Number(row.count) || 0)
+        const key = normalizeStoreName(row.store)
+        prevSourceMap.set(key, Number(row.source_count) || 0)
+        prevOnFileMap.set(key, Number(row.on_file_count) || 0)
+        prevKeyedMap.set(key, Number(row.keyed_count) || 0)
       }
     })
 
@@ -402,18 +374,22 @@ export async function GET(request: Request) {
     const invoiceDataMap = new Map<string, { [store: string]: number }>()
     ;(invoiceRows as any[]).forEach((row) => {
       const month = row.month
-      const store = row.store
+      const rawStore = row.store
       const count = Number(row.count)
 
-      if (!store || store === "0" || store.toString().trim() === "") {
+      if (!rawStore || rawStore === "0" || rawStore.toString().trim() === "") {
         return
       }
+
+      const store = normalizeStoreName(rawStore.toString())
 
       if (!invoiceDataMap.has(month)) {
         invoiceDataMap.set(month, {})
       }
 
-      invoiceDataMap.get(month)![store] = count
+      // 同�����舗名に正規化された複数の表記（例: スペースあり・なし）を合算する
+      const existing = invoiceDataMap.get(month)![store] || 0
+      invoiceDataMap.get(month)![store] = existing + count
     })
 
     const invoiceMonthly = Array.from(invoiceDataMap.entries())
@@ -423,14 +399,19 @@ export async function GET(request: Request) {
         ...stores,
       }))
 
-    return NextResponse.json({
+    const responseData = {
       monthly: monthlyData,
       today: todayData,
       yesterday: yesterdayData,
       invoiceMonthly,
       storeSales,
       memberChanges,
-    })
+    }
+
+    // キャッシュに保存
+    setCache(cacheKey, responseData)
+
+    return NextResponse.json(responseData)
   } catch (error) {
     console.error("[v0] Database error:", error)
     return NextResponse.json({ error: "データベース接続エラー", details: String(error) }, { status: 500 })

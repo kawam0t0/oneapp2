@@ -1,18 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import mysql from "mysql2/promise"
+import { getConnection } from "@/lib/db"
 
-async function getConnection() {
-  return await mysql.createConnection({
-    host: process.env.DB_HOST || "34.67.209.187",
-    port: Number(process.env.DB_PORT) || 3306,
-    user: process.env.DB_USER || "webapp",
-    password: process.env.DB_PASSWORD || "and0and1and2and3",
-    database: process.env.DB_NAME || "square2124",
-    ssl: {
-      rejectUnauthorized: false,
-    },
-  })
-}
+export const runtime = 'nodejs'
 
 // お知らせ一覧を取得
 export async function GET() {

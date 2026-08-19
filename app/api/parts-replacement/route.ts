@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 
+export const runtime = 'nodejs'
+
 function calculateWarrantyInfo(replacedAt: string) {
   const replacedDate = new Date(replacedAt)
   const today = new Date()
@@ -27,9 +29,9 @@ export async function GET(request: NextRequest) {
 
     let records
     if (storeId === "0") {
-      // Admin: 全店舗の履歴を取得
+      // Admin: 全店舗の履歴を取得（pr.store_nameが空ならstoresテーブルの値をフォールバック）
       records = await query(
-        `SELECT pr.*, s.store_name 
+        `SELECT pr.*, COALESCE(NULLIF(pr.store_name, ''), s.store_name) AS store_name
          FROM parts_replacements pr 
          LEFT JOIN stores s ON pr.store_id = s.id 
          ORDER BY pr.replaced_at DESC, pr.created_at DESC`,
@@ -37,7 +39,7 @@ export async function GET(request: NextRequest) {
     } else {
       // 各店舗: 自店舗の履歴のみ取得
       records = await query(
-        `SELECT pr.*, s.store_name 
+        `SELECT pr.*, COALESCE(NULLIF(pr.store_name, ''), s.store_name) AS store_name
          FROM parts_replacements pr 
          LEFT JOIN stores s ON pr.store_id = s.id 
          WHERE pr.store_id = ? 
@@ -70,6 +72,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
+    // store_nameをstoresテーブルから取得
+    const storeRows = await query(`SELECT store_name FROM stores WHERE id = ? LIMIT 1`, [storeId])
+    const storeName: string = storeRows.length > 0 ? storeRows[0].store_name : ""
+
     const groupedParts = new Map<string, any>()
 
     for (const part of parts) {
@@ -101,12 +107,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // グループ化された部品をINSERT
+    // グループ化された部品をINSERT（store_nameも一緒に保存）
     const insertPromises = Array.from(groupedParts.values()).map((part) => {
       return query(
-        `INSERT INTO parts_replacements (store_id, position, part_category, part_name, quantity, notes, replaced_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [storeId, part.position, part.partCategory, part.partName, part.quantity, part.notes, replacedAt],
+        `INSERT INTO parts_replacements (store_id, store_name, position, part_category, part_name, quantity, notes, replaced_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [storeId, storeName, part.position, part.partCategory, part.partName, part.quantity, part.notes, replacedAt],
       )
     })
 

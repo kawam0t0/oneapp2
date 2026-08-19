@@ -48,6 +48,7 @@ const PART_CATEGORIES = [
   { value: "昇降ブロワー", label: "昇降ブロワー" },
   { value: "ブロワー", label: "ブロワー" },
   { value: "センサー", label: "センサー" },
+  { value: "RO浸透膜", label: "RO浸透膜" },
   { value: "その他", label: "その他" },
 ]
 

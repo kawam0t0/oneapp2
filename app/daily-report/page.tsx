@@ -11,7 +11,7 @@ import { ArrowLeft, Check, Store, Calendar, Cloud, Car, DollarSign, Package, Mes
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 
-const WEATHER_OPTIONS = ["晴", "曇", "雨", "晴/曇", "曇/雨", "晴/雨"]
+const WEATHER_OPTIONS = ["晴", "曇", "雨", "晴/曇", "曇/雨", "晴/雨", "灰晴", "灰曇", "灰雨"]
 
 const WEATHER_ICONS: { [key: string]: string } = {
   晴: "☀️",
@@ -20,6 +20,9 @@ const WEATHER_ICONS: { [key: string]: string } = {
   "晴/曇": "⛅",
   "曇/雨": "🌦️",
   "晴/雨": "🌤️",
+  灰晴: "🌥️",
+  灰曇: "🌫️",
+  灰雨: "🌨️",
 }
 
 export default function DailyReportPage() {
@@ -41,39 +44,56 @@ export default function DailyReportPage() {
   const [itemData, setItemData] = useState<{ [key: string]: number }>({})
   const [comments, setComments] = useState("")
 
+  // 今日の日付 (JST) を YYYY-MM-DD で返す
+  const getTodayJST = () => {
+    const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    return `${nowJST.getUTCFullYear()}-${String(nowJST.getUTCMonth() + 1).padStart(2, "0")}-${String(nowJST.getUTCDate()).padStart(2, "0")}`
+  }
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch("/api/daily-report", {
-          cache: "no-store",
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-        })
-        const data = await response.json()
-
-        console.log("[v0] Fetched daily report data:", data)
-
-        setStoreName(data.storeName)
-        setDate(data.date)
-        setTotalCount(data.totalCount.toString())
-        setItemData(data.itemData)
-
-        if (data.existingReport) {
-          setWeather(data.existingReport.weather || "")
-          setCashSales(data.existingReport.cash_sales || "")
-          setComments(data.existingReport.comments || "")
-        }
-
-        setLoading(false)
-      } catch (error) {
-        console.error("[v0] Error fetching data:", error)
-        setLoading(false)
-      }
-    }
-
-    fetchData()
+    // 初期日付をJSTの今日にセット
+    const today = getTodayJST()
+    setDate(today)
+    fetchData(today)
   }, [])
+
+  const fetchData = async (targetDate: string) => {
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/daily-report?date=${targetDate}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      })
+      const data = await response.json()
+
+      console.log("[v0] Fetched daily report data:", data)
+
+      setStoreName(data.storeName)
+      setTotalCount(data.totalCount.toString())
+      setItemData(data.itemData)
+
+      if (data.existingReport) {
+        setWeather(data.existingReport.weather || "")
+        setCashSales(data.existingReport.cash_sales || "")
+        setComments(data.existingReport.comments || "")
+      } else {
+        setWeather("")
+        setCashSales("")
+        setComments("")
+      }
+
+      setLoading(false)
+    } catch (error) {
+      console.error("[v0] Error fetching data:", error)
+      setLoading(false)
+    }
+  }
+
+  // 日付変更時: 新しい日付でデータを再取得
+  const handleDateChange = (newDate: string) => {
+    setDate(newDate)
+    if (newDate) fetchData(newDate)
+  }
 
   const handleItemChange = (itemName: string, value: string) => {
     setItemData((prev) => ({
@@ -85,6 +105,10 @@ export default function DailyReportPage() {
   const handleSubmit = async () => {
     setIsSubmitting(true)
     try {
+      // タイムアウト60秒を設定したAbortController
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 60000) // 60秒
+
       const response = await fetch("/api/daily-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -97,18 +121,25 @@ export default function DailyReportPage() {
           itemData,
           comments,
         }),
+        signal: controller.signal,
       })
+
+      clearTimeout(timeoutId)
 
       if (response.ok) {
         alert("日報を送信しました")
         router.push("/")
       } else {
-        alert("送信に失敗しました")
+        alert("送信に失敗しました。もう一度お試しください。")
         setIsSubmitting(false)
       }
     } catch (error) {
       console.error("[v0] Error submitting report:", error)
-      alert("送信エラーが発生しました")
+      if (error instanceof Error && error.name === 'AbortError') {
+        alert("送信がタイムアウトしました。通信環境を確認してもう一度お試しください。")
+      } else {
+        alert("送信エラーが発生しました。もう一度お試しください。")
+      }
       setIsSubmitting(false)
     }
   }
@@ -352,8 +383,8 @@ export default function DailyReportPage() {
                     id="date"
                     type="date"
                     value={date}
-                    disabled
-                    className="bg-gray-50 border-gray-300 font-medium"
+                    onChange={(e) => handleDateChange(e.target.value)}
+                    className="bg-white border-gray-300 font-medium"
                   />
                 </div>
 
@@ -395,9 +426,11 @@ export default function DailyReportPage() {
                   </Label>
                   <Input
                     id="totalCount"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={totalCount}
-                    onChange={(e) => setTotalCount(e.target.value)}
+                    onChange={(e) => setTotalCount(e.target.value.replace(/[^0-9]/g, ""))}
                     placeholder="0"
                     className={`bg-white text-lg font-semibold ${errors.totalCount ? "border-red-500 border-2" : "border-gray-300"}`}
                   />
@@ -411,9 +444,11 @@ export default function DailyReportPage() {
                   </Label>
                   <Input
                     id="cashSales"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={cashSales}
-                    onChange={(e) => setCashSales(e.target.value)}
+                    onChange={(e) => setCashSales(e.target.value.replace(/[^0-9]/g, ""))}
                     placeholder="0"
                     className={`bg-white text-lg font-semibold ${errors.cashSales ? "border-red-500 border-2" : "border-gray-300"}`}
                   />
@@ -437,9 +472,11 @@ export default function DailyReportPage() {
                       </Label>
                       <Input
                         id={itemName}
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={count}
-                        onChange={(e) => handleItemChange(itemName, e.target.value)}
+                        onChange={(e) => handleItemChange(itemName, e.target.value.replace(/[^0-9]/g, ""))}
                         className="border-gray-300 text-lg font-semibold"
                       />
                     </div>

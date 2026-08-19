@@ -10,9 +10,11 @@ interface CalendarEvent {
   title: string
   date: string
   color: string
+  store_id?: string
   store_name?: string
   is_generated_holiday?: boolean
   is_maintenance_week?: boolean
+  isStoreClosed?: boolean
 }
 
 export function MiniCalendar() {
@@ -26,12 +28,10 @@ export function MiniCalendar() {
     fetch("/api/auth/session")
       .then((res) => res.json())
       .then((data) => {
-        console.log("[v0] Session data:", data)
         if (data?.store_name) {
           // 例: "SPLASH'N'GO!前橋50号店" → "前橋50号"
           const fullName = data.store_name as string
           const shortName = fullName.replace("SPLASH'N'GO!", "").replace("店", "").trim()
-          console.log("[v0] Store name extracted:", shortName, "from", fullName)
           setStoreName(shortName)
         }
         if (data?.store_id) {
@@ -52,29 +52,17 @@ export function MiniCalendar() {
       .then((res) => res.json())
       .then((data: CalendarEvent[]) => {
         if (Array.isArray(data)) {
-          console.log("[v0] All events:", data.length)
-
-          const holidayEvents = data.filter((event) => event.is_generated_holiday === true)
-          console.log(
-            "[v0] Holiday events:",
-            holidayEvents.map((e) => e.title),
-          )
-          console.log("[v0] Looking for store:", storeName)
-
-          // 自店舗の定休日（タイトルに自店舗名が含まれる）
-          const filteredEvents = data.filter((event) => {
-            const isMyStoreHoliday = event.is_generated_holiday === true && event.title?.includes(storeName)
-            // 自店舗のメンテナンス週間
-            const isMyMaintenanceWeek = event.is_maintenance_week === true
-
-            if (isMyStoreHoliday) {
-              console.log("[v0] Found my store holiday:", event.title)
-            }
-
-            return isMyStoreHoliday || isMyMaintenanceWeek
+          // 自店舗のイベントを抽出（store_idのみで判定）
+          const myEvents = data.filter((event) => {
+            return String(event.store_id) === String(storeId)
           })
-          console.log("[v0] Filtered events:", filteredEvents.length)
-          setEvents(filteredEvents)
+
+          // 定休日とメンテナンス週間に分離（isStoreClosedフラグで判定）
+          const myHolidays = myEvents.filter(e => e.isStoreClosed === true)
+          const myMaintenanceWeeks = myEvents.filter(e => e.is_maintenance_week === true)
+
+          // 定休日とメンテナンス週間を結合
+          setEvents([...myHolidays, ...myMaintenanceWeeks])
         }
       })
       .catch(console.error)
@@ -151,7 +139,7 @@ export function MiniCalendar() {
   // イベントタイトルを短縮
   const shortenTitle = (title: string) => {
     if (title.includes("定休日")) {
-      return ""
+      return "定休日"
     }
     if (title.includes("メンテナンス")) {
       return ""
@@ -233,7 +221,7 @@ export function MiniCalendar() {
                         key={eventIndex}
                         className="text-[8px] leading-tight px-0.5 py-0.5 rounded truncate text-white font-medium"
                         style={{
-                          backgroundColor: event.is_generated_holiday
+                          backgroundColor: event.isStoreClosed
                             ? "#ef4444"
                             : event.is_maintenance_week
                               ? "#22c55e"

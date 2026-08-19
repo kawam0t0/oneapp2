@@ -46,8 +46,10 @@ export function MaintenanceImageGenerator({ isOpen, onClose }: MaintenanceImageG
       const response = await fetch("/api/stores")
       if (response.ok) {
         const data = await response.json()
-        // id >= 1の店舗のみを取得
-        const filteredStores = data.filter((store: Store) => store.id >= 1)
+        // id >= 1の店舗のみを取得、鹿児島中山店は除外
+        const filteredStores = data.filter(
+          (store: Store) => store.id >= 1 && !store.store_name.includes("鹿児島中山店")
+        )
         setStores(filteredStores)
 
         // 初期日付を空にする
@@ -63,99 +65,144 @@ export function MaintenanceImageGenerator({ isOpen, onClose }: MaintenanceImageG
   }
 
   const removeStorePrefix = (storeName: string) => {
-    // "SPLASH'N'GO!"を削除
-    return storeName.replace(/SPLASH'N'GO!?\s*/gi, "").trim()
+    return storeName
+      .replace(/SPLASH'N'GO!?\s*/gi, "")
+      .replace(/スプラッシュンゴー[-－]?\s*/g, "")
+      .replace(/スプラッシュンゴー\s*/g, "")
+      .trim()
   }
 
   const formatDateWithWeekday = (date: Date) => {
     const month = date.getMonth() + 1
     const day = date.getDate()
     const weekday = WEEKDAY_MAP[date.getDay()]
-    return `${month}月${day}日（${weekday}）`
+    return `${month}月${day}日(${weekday})`
   }
 
-  const generateImage = () => {
+  const generateImage = async () => {
     const canvas = canvasRef.current
     if (!canvas) return
 
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
+    // カスタムフォントを読み込む
+    try {
+      const logoFontUltra = new FontFace("LogoGUltra", "url(/fonts/LogoGStd-Ultra.otf)")
+      const avantGardeFont = new FontFace("AvantGarde", "url(/fonts/ITCAvantGardeStd-Bold.ttf)")
+      await Promise.all([logoFontUltra.load(), avantGardeFont.load()])
+      document.fonts.add(logoFontUltra)
+      document.fonts.add(avantGardeFont)
+    } catch (e) {
+      console.error("Font loading failed:", e)
+    }
+
     // キャンバスサイズを設定
     canvas.width = 2000
     canvas.height = 1414
 
-    // 背景（白）
-    ctx.fillStyle = "#FFFFFF"
+    // 背景全体 - 青色 (#0025CC)
+    ctx.fillStyle = "#0025CC"
     ctx.fillRect(0, 0, 2000, 1414)
 
-    // 青い枠
-    ctx.strokeStyle = "#2563EB"
-    ctx.lineWidth = 40
-    ctx.strokeRect(20, 20, 1960, 1374)
+    // 内側 - 白背景（薄いベージュ）
+    ctx.fillStyle = "#f5f5f0"
+    ctx.fillRect(40, 40, 1920, 1334)
 
-    // タイトル「洗車機メンテナンスに伴う休業のお知らせ」
-    ctx.fillStyle = "#000000"
-    ctx.font = "bold 80px sans-serif"
+    // タイトル「洗車機メンテナンスに伴う休業のお知らせ」- 赤文字 (#ff3131)
+    ctx.fillStyle = "#ff3131"
+    ctx.font = "75px LogoGUltra, 'Hiragino Kaku Gothic ProN', sans-serif"
     ctx.textAlign = "center"
-    const title1 = "洗車機メンテナンスに伴う"
-    const title2 = "休業のお知らせ"
-    ctx.fillText(title1, 1000, 200)
-    ctx.fillText(title2, 1000, 300)
+    ctx.textBaseline = "middle"
+    ctx.fillText("洗車機メンテナンスに伴う", 1000, 130)
+    ctx.fillText("休業のお知らせ", 1000, 220)
 
     const sortedStores = [...stores].sort((a, b) => {
       const dateA = storeDates[a.id]
       const dateB = storeDates[b.id]
-
-      // 日付が設定されていない店舗は後ろに
       if (!dateA && !dateB) return 0
       if (!dateA) return 1
       if (!dateB) return -1
-
-      // 日付が古い順（昇順）
       return dateA.getTime() - dateB.getTime()
     })
 
-    // 各店舗と日付を描画
-    const startY = 450
-    const rowHeight = 140
+    // ---- 2列レイアウト設定 ----
+    // canvas: 2000 x 1414
+    // 左右マージン: 60px、列間ギャップ: 40px
+    // 1列の幅: (2000 - 60*2 - 40) / 2 = 920px
+    // 各列内訳: 店舗名楕円(290px) + ギャップ(20px) + 日付テキスト(610px) = 920px
+    const colCount   = 2
+    const marginX    = 60
+    const colGap     = 40
+    const colWidth   = (2000 - marginX * 2 - colGap) / colCount  // 920
+    const labelW     = 290
+    const labelH     = 78
+    const labelR     = 39
+    const dateStartX = labelW + 24    // 楕円右端 + 余白（列内相対座標）
+    const rowCount   = Math.ceil(sortedStores.length / colCount)
 
-    sortedStores.forEach((store, index) => {
-      const y = startY + index * rowHeight
-      const date = storeDates[store.id]
+    // 行間を均等配分: タイトル下 280px ～ フッター上 1260px
+    const areaTop    = 290
+    const areaBottom = 1250
+    const areaHeight = areaBottom - areaTop
+    const rowHeight  = rowCount > 0 ? Math.floor(areaHeight / rowCount) : 160
+    const rowPadding = Math.floor(rowHeight * 0.5)   // 行内の垂直中心
 
-      // 店舗名（青い丸角矩形）
-      ctx.fillStyle = "#2563EB"
+    for (let index = 0; index < sortedStores.length; index++) {
+      const store  = sortedStores[index]
+      const col    = index % colCount
+      const row    = Math.floor(index / colCount)
+      const colX   = marginX + col * (colWidth + colGap)   // 列の左端X
+      const rowY   = areaTop + row * rowHeight + rowPadding  // 行の垂直中心Y
+      const date   = storeDates[store.id]
+
+      // 店舗名楕円（青）
+      ctx.fillStyle = "#0025CC"
       ctx.beginPath()
-      ctx.roundRect(200, y - 50, 350, 90, 45)
+      ctx.roundRect(colX, rowY - labelH / 2, labelW, labelH, labelR)
       ctx.fill()
 
       // 店舗名テキスト（白）
-      ctx.fillStyle = "#FFFFFF"
-      ctx.font = "bold 48px sans-serif"
-      ctx.textAlign = "center"
-      ctx.fillText(removeStorePrefix(store.store_name), 375, y + 10)
+      ctx.fillStyle    = "#FFFFFF"
+      ctx.font         = "44px LogoGUltra, 'Hiragino Kaku Gothic ProN', sans-serif"
+      ctx.textAlign    = "center"
+      ctx.textBaseline = "middle"
+      ctx.fillText(removeStorePrefix(store.store_name), colX + labelW / 2, rowY)
 
-      // 日付（赤）
+      // 日付テキスト（赤）
+      const fontSize = Math.min(95, Math.floor(rowHeight * 0.70))
+      const numFont  = `${fontSize}px AvantGarde, sans-serif`
+      const txtFont  = `${fontSize}px LogoGUltra, 'Hiragino Kaku Gothic ProN', sans-serif`
+
       if (date) {
-        ctx.fillStyle = "#EF4444"
-        ctx.font = "bold 96px sans-serif"
-        ctx.textAlign = "left"
-        ctx.fillText(formatDateWithWeekday(date), 750, y + 10)
-      } else {
-        ctx.fillStyle = "#9CA3AF"
-        ctx.font = "bold 48px sans-serif"
-        ctx.textAlign = "left"
-        ctx.fillText("日付を選択", 750, y + 10)
-      }
-    })
+        ctx.fillStyle    = "#ff3131"
+        ctx.textAlign    = "left"
+        ctx.textBaseline = "alphabetic"
+        const dateText   = formatDateWithWeekday(date)
+        const baselineY  = rowY + fontSize * 0.35
+        let currentX     = colX + dateStartX
 
-    // 下部メッセージ
-    ctx.fillStyle = "#2563EB"
-    ctx.font = "bold 36px sans-serif"
+        for (const char of dateText.split("")) {
+          ctx.font = /[0-9]/.test(char) ? numFont : txtFont
+          ctx.fillText(char, currentX, baselineY)
+          currentX += ctx.measureText(char).width
+        }
+      } else {
+        ctx.fillStyle    = "#9CA3AF"
+        ctx.font         = `44px LogoGUltra, 'Hiragino Kaku Gothic ProN', sans-serif`
+        ctx.textAlign    = "left"
+        ctx.textBaseline = "middle"
+        ctx.fillText("日付を選択", colX + dateStartX, rowY)
+      }
+    }
+
+    // 下部メッセージ - 青文字 (#0025CC)
+    ctx.fillStyle = "#0025CC"
+    ctx.font = "42px LogoGUltra, 'Hiragino Kaku Gothic ProN', sans-serif"
     ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
     const message = "お客様にはご不便をおかけしますが、ご理解とご協力をお願い申し上げます！"
-    ctx.fillText(message, 1000, 1320)
+    ctx.fillText(message, 1000, 1300)
   }
 
   useEffect(() => {

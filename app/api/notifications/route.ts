@@ -1,19 +1,7 @@
 import { NextResponse } from "next/server"
-import mysql from "mysql2/promise"
+import { getConnection } from "@/lib/db"
 
-// ローカル環境で環境変数を設定してください
-const getConnection = async () => {
-  return await mysql.createConnection({
-    host: process.env.DB_HOST || "34.67.209.187",
-    port: Number.parseInt(process.env.DB_PORT || "3306"),
-    user: process.env.DB_USER || "your_username",
-    password: process.env.DB_PASSWORD || "your_password",
-    database: process.env.DB_NAME || "your_database",
-    ssl: {
-      rejectUnauthorized: false,
-    },
-  })
-}
+export const runtime = 'nodejs'
 
 // お知らせ一覧を取得
 export async function GET() {

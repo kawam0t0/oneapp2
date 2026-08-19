@@ -1,14 +1,13 @@
 "use client"
-
 import type React from "react"
-import { MiniCalendar } from "@/components/mini-calendar"
-import { useAuth } from "@/components/auth-provider" // useAuthを追加
+import { WeatherWidget } from "@/components/weather-widget"
+import { useAuth } from "@/components/auth-provider"
 import { TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import StoreCockpitView from "@/components/store-cockpit-view"
 import {
   XAxis,
   YAxis,
@@ -22,23 +21,19 @@ import {
   LineChart,
   Line,
 } from "recharts"
-
 interface StoreData {
   store: string
   items: { [key: string]: number }
   total: number
 }
-
 interface DailyData {
   date: string
   count: number
 }
-
 interface InvoiceMonthlyData {
   month: string
   [store: string]: number | string
 }
-
 interface StoreCategoryData {
   store: string
   categories: {
@@ -48,7 +43,6 @@ interface StoreCategoryData {
   }[]
   total: number
 }
-
 interface StoreSalesData {
   store: string
   monthlyOnetime: number
@@ -56,18 +50,17 @@ interface StoreSalesData {
   monthlySubsc: number
   todaySubsc: number
 }
-
 interface MemberChangeData {
   store: string
   currentCount: number
   prevCount: number
   change: number
 }
-
 interface ApiResponse {
   monthly: StoreData[]
   today: StoreData[]
-  yesterday?: StoreData[] // 前日データを追加
+  yesterday?: StoreData[]
+  yearly?: StoreData[]
   daily?: DailyData[]
   invoiceMonthly?: InvoiceMonthlyData[]
   storeCategories?: StoreCategoryData[]
@@ -75,7 +68,6 @@ interface ApiResponse {
   memberChanges?: MemberChangeData[]
   error?: string
 }
-
 const STORE_ORDER = [
   "SPLASH'N'GO!前橋50号店",
   "SPLASH'N'GO!伊勢崎韮塚店",
@@ -83,8 +75,9 @@ const STORE_ORDER = [
   "SPLASH'N'GO!足利緑町店",
   "SPLASH'N'GO!新前橋店",
   "SPLASH'N'GO!太田新田店",
+  "スプラッシュンゴー鹿児島中山店",
+  "スプラッシュンゴー藤岡大塚店",
 ]
-
 const STORE_SHORT_NAMES: { [key: string]: string } = {
   "SPLASH'N'GO!前橋50号店": "前橋50号",
   "SPLASH'N'GO!伊勢崎韮塚店": "伊勢崎韮塚",
@@ -92,19 +85,107 @@ const STORE_SHORT_NAMES: { [key: string]: string } = {
   "SPLASH'N'GO!足利緑町店": "足利緑町",
   "SPLASH'N'GO!新前橋店": "新前橋",
   "SPLASH'N'GO!太田新田店": "太田新田",
+  "スプラッシュンゴー鹿児島中山店": "鹿児島中山",
+  "スプラッシュンゴー藤岡大塚店": "藤岡大塚",
 }
 
+// ブランド名を除去して店舗名のみ返す（新店舗追加時も自動対応）
+function getDisplayName(storeName: string): string {
+  if (STORE_SHORT_NAMES[storeName]) return STORE_SHORT_NAMES[storeName]
+  // SPLASH'N'GO! 英語表記を除去
+  if (storeName.startsWith("SPLASH")) {
+    const idx = storeName.search(/[!！]/)
+    if (idx !== -1) return storeName.substring(idx + 1).trim()
+  }
+  // スプラッシュンゴー 日本語表記を除去
+  return storeName
+    .replace(/^スプラッシュンゴー[　\s]*/, "")
+    .replace(/^スプラッシュ'ン'ゴー[　\s]*/, "")
+    .trim()
+}
+
+// ライブ映像エラー画面付きiframeコンポーネント
+function CameraFrame({ src }: { src: string }) {
+  const [iframeKey, setIframeKey] = useState(0)
+  const [status, setStatus] = useState<"loading" | "live" | "error">("loading")
+
+  useEffect(() => {
+    setStatus("loading")
+    // 12秒経過しても loaded にならなければエラー扱い
+    const timer = setTimeout(() => {
+      setStatus((prev) => (prev === "loading" ? "error" : prev))
+    }, 12000)
+    return () => clearTimeout(timer)
+  }, [iframeKey])
+
+  const handleReload = () => {
+    setIframeKey((k) => k + 1)
+    setStatus("loading")
+  }
+
+  return (
+    <div className="aspect-video w-full rounded-lg overflow-hidden bg-gray-900 mb-4 relative">
+      <iframe
+        key={iframeKey}
+        src={src}
+        className="w-full h-full"
+        allow="autoplay; encrypted-media; picture-in-picture"
+        allowFullScreen
+        onLoad={() => setStatus("live")}
+      />
+      {/* 接続中オーバーレイ */}
+      {status === "loading" && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/90 gap-3">
+          <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+          <p className="text-white text-sm font-medium">ただいま接続中...</p>
+        </div>
+      )}
+      {/* エラーオーバーレイ */}
+      {status === "error" && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/95 gap-4">
+          <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+            <div className="w-5 h-5 rounded-full bg-red-400" />
+          </div>
+          <div className="text-center">
+            <p className="text-white text-sm font-semibold mb-1">映像を取得できませんでした</p>
+            <p className="text-gray-400 text-xs">ネットワーク接続を確認してください</p>
+          </div>
+          <button
+            onClick={handleReload}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors"
+          >
+            再接続する
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// MediaMTX直接接続マッピング（camera.splashbrothers.co.jp経由）
+const CAMERA_MAP: { [key: string]: string } = {
+  "SPLASH'N'GO!前橋50号店":       "https://camera.splashbrothers.co.jp/store1/",
+  "SPLASH'N'GO!伊勢崎韮塚店":     "https://camera.splashbrothers.co.jp/store2/",
+  "SPLASH'N'GO!高崎棟高店":       "https://camera.splashbrothers.co.jp/store3/",
+  "SPLASH'N'GO!足利緑町店":       "https://camera.splashbrothers.co.jp/store4/",
+  "SPLASH'N'GO!新前橋店":         "https://camera.splashbrothers.co.jp/store5/",
+  "SPLASH'N'GO!太田新田店":       "https://camera.splashbrothers.co.jp/store6/",
+  "スプラッシュンゴー鹿児島中山店": "https://camera.splashbrothers.co.jp/store7/",
+  "鹿児島中山店":                  "https://camera.splashbrothers.co.jp/store7/",
+  "スプラッシュンゴー藤岡大塚店":   "https://camera.splashbrothers.co.jp/store8/",
+  "藤岡大塚店":                    "https://camera.splashbrothers.co.jp/store8/",
+}
 const STORE_COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"]
-
 const STORE_COLOR_MAP: { [key: string]: string } = {
-  "SPLASH'N'GO!前橋50号店": "#3b82f6", // 青
-  "SPLASH'N'GO!伊勢崎韮塚店": "#22c55e", // 緑
-  "SPLASH'N'GO!高崎棟高店": "#f59e0b", // オレンジ
-  "SPLASH'N'GO!足利緑町店": "#ef4444", // 赤
-  "SPLASH'N'GO!新前橋店": "#8b5cf6", // 紫
-  "SPLASH'N'GO!太田新田店": "#06b6d4", // シアン
+  "SPLASH'N'GO!前橋50号店": "#3b82f6",       // 青
+  "SPLASH'N'GO!伊勢崎韮塚店": "#22c55e",     // 緑
+  "SPLASH'N'GO!高崎棟高店": "#f59e0b",       // オレンジ
+  "SPLASH'N'GO!足利緑町店": "#ef4444",       // 赤
+  "SPLASH'N'GO!新前橋店": "#8b5cf6",         // 紫
+  "SPLASH'N'GO!太田新田店": "#06b6d4",       // シアン
+  "スプラッシュンゴー鹿児島中山店": "#ec4899", // ピンク
+  "スプラッシュンゴー藤岡大塚店": "#84cc16",  // ライムグリーン
 }
-
 const CATEGORY_COLORS: { [key: string]: string } = {
   サブスク: "#3b82f6",
   リピート: "#22c55e",
@@ -113,22 +194,20 @@ const CATEGORY_COLORS: { [key: string]: string } = {
   ポイント: "#8b5cf6",
   キャンペーン: "#ec4899",
   無料券: "#6b7280",
-  セラミック: "#f59e0b",
+  デラックス: "#f59e0b",
   セラミック祭り: "#f59e0b",
   その他: "#9ca3af",
 }
-
 const COURSE_COLORS: { [key: string]: string } = {
   プレミアム: "#6366f1", // インディゴ
   プラス: "#10b981", // 緑
   ナイアガラ: "#06b6d4", // シアン
-  セラミック: "#f59e0b", // オレンジ
+  デラックス: "#f59e0b", // オレンジ
   タートル: "#8b5cf6", // 紫
   スタンダード: "#ec4899", // ピンク
   ベーシック: "#14b8a6", // ティール
   その他: "#9ca3af", // グレー
 }
-
 const handleLegendClick = (dataKey: string, setHiddenStores: React.Dispatch<React.SetStateAction<Set<string>>>) => {
   setHiddenStores((prev) => {
     const newSet = new Set(prev)
@@ -140,23 +219,23 @@ const handleLegendClick = (dataKey: string, setHiddenStores: React.Dispatch<Reac
     return newSet
   })
 }
-
 export default function DashboardView() {
   const { session } = useAuth() // セッション情報を取得
-
   const isAdmin = session?.store_id === 0 || session?.store_name === "admin"
 
+  // admin以外はLIVE COCKPITビューを表示
+  if (!isAdmin) {
+    return <StoreCockpitView />
+  }
   const getCurrentMonth = () => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
   }
-
   const getPreviousMonth = () => {
     const now = new Date()
     now.setMonth(now.getMonth() - 1)
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
   }
-
   const [selectedPeriod, setSelectedPeriod] = useState(getCurrentMonth())
   const [monthlyData, setMonthlyData] = useState<StoreData[]>([])
   const [todayData, setTodayData] = useState<StoreData[]>([])
@@ -166,11 +245,11 @@ export default function DashboardView() {
   const [storeCategories, setStoreCategories] = useState<StoreCategoryData[]>([])
   const [storeSales, setStoreSales] = useState<StoreSalesData[]>([])
   const [memberChanges, setMemberChanges] = useState<MemberChangeData[]>([]) // 会員数増減のstate追加
-  const [initialLoading, setInitialLoading] = useState(true) // 初回ロードとリフレッシュを区別するための状態を追加
+  const [memberCounts, setMemberCounts] = useState<Record<string, number>>({}) // スプレッドシート会������
+  const [initialLoading, setInitialLoading] = useState(true) // 初回ロード��リフレッシュを区別するための状態を追加
   const [loading, setLoading] = useState(false)
-  const categoryPeriod = getPreviousMonth()
-  const [hiddenStores, setHiddenStores] = useState(new Set<string>()) // hiddenStoresのstate追加
-
+  const [categoryPeriod, setCategoryPeriod] = useState(getPreviousMonth())
+  const [hiddenStores, setHiddenStores] = useState(new Set<string>()) // hiddenStoresのstate��加
   const generatePeriods = () => {
     const periods = []
     for (let year = 2025; year <= 2030; year++) {
@@ -180,29 +259,41 @@ export default function DashboardView() {
     }
     return periods
   }
-
   const periods = generatePeriods()
-
   useEffect(() => {
     fetchData()
-
     const interval = setInterval(() => {
       fetchData()
     }, 30000) // 30秒 = 30000ミリ秒
-
     // クリーンアップ: コンポーネントがアンマウントされたら停止
     return () => clearInterval(interval)
   }, [selectedPeriod])
-
   useEffect(() => {
     fetchCategoryData()
-
     const interval = setInterval(() => {
       fetchCategoryData()
     }, 30000)
-
     return () => clearInterval(interval)
   }, [categoryPeriod])
+
+  // 39キャンペーン終了のため会員数取得を停止
+  // 復活時は以下のコードのコメントを外す
+  /*
+  useEffect(() => {
+    const fetchMemberCounts = async () => {
+      try {
+        const res = await fetch("/api/member-count")
+        if (res.ok) {
+          const data = await res.json()
+          setMemberCounts(data)
+        }
+      } catch {}
+    }
+    fetchMemberCounts()
+    const interval = setInterval(fetchMemberCounts, 5000)
+    return () => clearInterval(interval)
+  }, [])
+  */
 
   const fetchData = async () => {
     if (initialLoading) {
@@ -211,10 +302,9 @@ export default function DashboardView() {
     try {
       const response = await fetch(`/api/dashboard?period=${selectedPeriod}`)
       const result: ApiResponse = await response.json()
-
       if (result.error || !result.monthly || !result.today) {
-        setMonthlyData([])
-        setTodayData([])
+      setMonthlyData([])
+      setTodayData([])
         setYesterdayData([])
         setDailyData([])
         setInvoiceMonthlyData([])
@@ -222,7 +312,6 @@ export default function DashboardView() {
         setMemberChanges([])
         return
       }
-
       const filteredMonthly = result.monthly.filter(
         (store: StoreData) => store.store && store.store !== "0" && store.store.trim() !== "",
       )
@@ -232,7 +321,6 @@ export default function DashboardView() {
       const filteredYesterday = (result.yesterday || []).filter(
         (store: StoreData) => store.store && store.store !== "0" && store.store.trim() !== "",
       )
-
       const sortByOrder = (data: StoreData[]) => {
         return [...data].sort((a, b) => {
           const indexA = STORE_ORDER.indexOf(a.store)
@@ -243,7 +331,6 @@ export default function DashboardView() {
           return indexA - indexB
         })
       }
-
       setMonthlyData(sortByOrder(filteredMonthly))
       setTodayData(sortByOrder(filteredToday))
       setYesterdayData(sortByOrder(filteredYesterday))
@@ -266,12 +353,10 @@ export default function DashboardView() {
       setLoading(false)
     }
   }
-
   const fetchCategoryData = async () => {
     try {
       const response = await fetch(`/api/dashboard?period=${categoryPeriod}&categories=true`)
       const result: ApiResponse = await response.json()
-
       if (result.storeCategories) {
         setStoreCategories(result.storeCategories)
       } else {
@@ -282,12 +367,10 @@ export default function DashboardView() {
       setStoreCategories([])
     }
   }
-
   const formatPeriodLabel = (period: string) => {
     const [year, month] = period.split("-")
     return `${year}年${Number.parseInt(month)}月`
   }
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("ja-JP", {
       style: "currency",
@@ -295,9 +378,7 @@ export default function DashboardView() {
       maximumFractionDigits: 0,
     }).format(amount)
   }
-
   const monthlyTotal = monthlyData.reduce((sum, store) => sum + store.total, 0)
-
   if (initialLoading && loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 p-6 flex items-center justify-center">
@@ -305,19 +386,37 @@ export default function DashboardView() {
       </div>
     )
   }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
       <div className="px-3 py-6 md:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl space-y-6">
           {/* Period Selector */}
-          <Card className="overflow-hidden border-blue-100 bg-gradient-to-r from-blue-600 to-blue-500 shadow-xl">
-            <CardContent className="p-4 md:p-6">
-              <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+        <Card className="overflow-hidden border-blue-100 bg-gradient-to-r from-blue-600 to-blue-500 shadow-xl">
+          <CardContent className="p-4 md:p-6">
+            <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
                 <div>
                   <h2 className="text-xl font-bold text-white md:text-2xl">DASHBOARD</h2>
                   <p className="text-sm text-blue-100">店舗別洗車実績レポート</p>
                 </div>
+                {/* 全店舗合計サマリー */}
+                <div className="flex items-stretch gap-px bg-blue-400/30 rounded-xl overflow-hidden">
+                  <div className="flex flex-col items-center justify-center px-4 py-2 bg-blue-500/40 gap-0.5 min-w-[80px]">
+                    <p className="text-blue-200 text-[9px] font-semibold tracking-widest uppercase">Daily</p>
+                    <p className="text-white text-2xl font-black tabular-nums leading-none">
+                      {todayData.reduce((sum, s) => sum + s.total, 0).toLocaleString()}
+                    </p>
+                    <p className="text-blue-200 text-[9px]">台</p>
+                  </div>
+                  <div className="flex flex-col items-center justify-center px-4 py-2 bg-blue-500/40 gap-0.5 min-w-[80px]">
+                    <p className="text-blue-200 text-[9px] font-semibold tracking-widest uppercase">Monthly</p>
+                    <p className="text-white text-2xl font-black tabular-nums leading-none">
+                      {monthlyTotal.toLocaleString()}
+                    </p>
+                    <p className="text-blue-200 text-[9px]">台</p>
+                  </div>
+                </div>
+              </div>
                 <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center md:w-auto">
                   <Button
                     onClick={() => {
@@ -347,35 +446,44 @@ export default function DashboardView() {
               </div>
             </CardContent>
           </Card>
-
-          <div className="flex flex-col lg:flex-row gap-4">
-            {/* 左側: 店舗カード */}
-            <div className="flex-1">
-              {/* 店舗別詳細カード - 青色ベースに変更 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {monthlyData.map((store, index) => {
-                  const todayStore = todayData.find((s) => s.store === store.store)
-                  const yesterdayStore = yesterdayData.find((s) => s.store === store.store) // 前日データを取得
+          {/* 天気予報ウィジェット（admin以外） */}
+          {!isAdmin && session?.store_id && <WeatherWidget storeId={session.store_id} />}
+          {/* 店舗別詳細カー�� */}
+          <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {STORE_ORDER.map((storeName, index) => {
+                  const store = monthlyData.find((s) => s.store === storeName) ?? { store: storeName, total: 0 }
+                  const todayStore = todayData.find((s) => s.store === storeName)
+                  const yesterdayStore = yesterdayData.find((s) => s.store === storeName)
                   const percentage = monthlyTotal > 0 ? ((store.total / monthlyTotal) * 100).toFixed(1) : "0"
-                  const sales = storeSales.find((s) => s.store === store.store)
-                  const memberChange = memberChanges.find((m) => m.store === store.store)
-
+                  const sales = storeSales.find((s) => s.store === storeName)
+                  const memberChange = memberChanges.find((m) => m.store === storeName)
                   return (
                     <Card
                       key={store.store}
                       className="border-2 border-blue-200 bg-white shadow-lg hover:shadow-xl transition-all hover:scale-[1.02]"
                     >
                       <CardContent className="p-5">
+                        {/* ライブ映像: カードの最上部に埋め込み */}
+                        {(() => {
+                          const cameraSrc =
+                            CAMERA_MAP[store.store] ||
+                            CAMERA_MAP[getDisplayName(store.store)] ||
+                            Object.entries(CAMERA_MAP).find(
+                              ([key]) => getDisplayName(key) === getDisplayName(store.store)
+                            )?.[1]
+                          if (!cameraSrc) return null
+                          return <CameraFrame src={cameraSrc} />
+                        })()}
                         <div className="flex items-center gap-3 mb-4">
                           <div
                             className="w-4 h-4 rounded-full"
                             style={{ backgroundColor: STORE_COLORS[index % STORE_COLORS.length] }}
                           />
                           <h3 className="text-base font-bold text-gray-900">
-                            {STORE_SHORT_NAMES[store.store] || store.store}
+                            {getDisplayName(store.store)}
                           </h3>
                         </div>
-
                         <div className="grid grid-cols-2 gap-3 mb-3">
                           {/* 月間 */}
                           <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
@@ -434,7 +542,20 @@ export default function DashboardView() {
                             )}
                           </div>
                         </div>
-
+                        {(() => {
+                          const shortName = getDisplayName(store.store)
+                          const count = memberCounts[shortName + "店"] ?? memberCounts[shortName]
+                          // 常に表示する（データ未取得時は「-」を表示）
+                          return (
+                            <div className="mb-3 bg-blue-50 rounded-xl p-3 border border-blue-200">
+                              <p className="text-xs font-medium text-blue-600 mb-1">会員数（スプレッドシート）</p>
+                              <p className="text-2xl font-black text-blue-700">
+                                {count != null ? count.toLocaleString() : "-"}
+                                <span className="text-sm font-medium text-blue-500 ml-1">人</span>
+                              </p>
+                            </div>
+                          )
+                        })()}
                         {memberChange && (
                           <div className="mb-3 bg-gray-50 rounded-xl p-3 border border-gray-200">
                             <p className="text-xs font-medium text-gray-600 mb-1">会員数の増減（前月比）</p>
@@ -458,22 +579,19 @@ export default function DashboardView() {
                             </div>
                           </div>
                         )}
-
                         {/* カテゴリ内訳 */}
                         <div>
                           <p className="text-xs font-medium text-gray-500 mb-2">カテゴリ内訳</p>
                           <div className="space-y-1.5">
                             {(() => {
-                              const entries = Object.entries(store.items).sort((a, b) => b[1] - a[1])
+                              const entries = Object.entries(store.items ?? {}).sort((a, b) => b[1] - a[1])
                               const ceramicEntry = entries.find(([name]) => name === "セラミック祭り")
                               const topEntries = entries.slice(0, 5)
-
                               // セラミック祭りがあり、かつtop5に含まれていない場合は追加
                               if (ceramicEntry && !topEntries.some(([name]) => name === "セラミック祭り")) {
                                 topEntries.pop() // 最後の要素を削除
                                 topEntries.push(ceramicEntry) // セラミック祭りを追加
                               }
-
                               return topEntries.map(([itemName, count]) => {
                                 const todayCount = todayStore?.items?.[itemName] || 0
                                 return (
@@ -494,15 +612,6 @@ export default function DashboardView() {
                 })}
               </div>
             </div>
-
-            {/* 右側: ミニカレンダー */}
-            <div className="lg:w-72 flex-shrink-0">
-              <div className="sticky top-4">
-                <MiniCalendar />
-              </div>
-            </div>
-          </div>
-
           {/* 店舗別月額会員数 折れ線グラフ - 青色ベースに変更 */}
           <Card className="border-2 border-blue-200 bg-white shadow-lg">
             <CardContent className="p-6">
@@ -560,17 +669,37 @@ export default function DashboardView() {
               </div>
             </CardContent>
           </Card>
-
           {/* 店舗別コース構成比 - 青色ベースに変更 */}
           <Card className="border-2 border-blue-200 bg-white shadow-lg">
             <CardContent className="p-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                 <h3 className="text-lg font-bold text-gray-900">店舗別コース構成比</h3>
-                <div className="px-4 py-2 bg-blue-100 rounded-lg border border-blue-300">
-                  <span className="text-blue-700 font-semibold">{formatPeriodLabel(categoryPeriod)}</span>
-                </div>
+                <Select value={categoryPeriod} onValueChange={(val) => setCategoryPeriod(val)}>
+                  <SelectTrigger className="w-36 bg-blue-50 border-blue-300 text-blue-700 font-semibold">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(() => {
+                      const options: { value: string; label: string }[] = []
+                      const now = new Date()
+                      const endYear = now.getFullYear()
+                      const endMonth = now.getMonth() + 1
+                      for (let y = 2025; y <= endYear; y++) {
+                        const startM = y === 2025 ? 4 : 1
+                        const endM = y === endYear ? endMonth : 12
+                        for (let m = startM; m <= endM; m++) {
+                          const val = `${y}-${String(m).padStart(2, "0")}`
+                          options.push({ value: val, label: `${y}年${m}月` })
+                        }
+                      }
+                      // 新しい月が上に来るよう降順で表示
+                      return options.reverse().map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))
+                    })()}
+                  </SelectContent>
+                </Select>
               </div>
-
               {storeCategories.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {storeCategories.map((storeData, storeIndex) => (
@@ -585,11 +714,10 @@ export default function DashboardView() {
                           style={{ backgroundColor: STORE_COLORS[storeIndex % STORE_COLORS.length] }}
                         />
                         <h4 className="font-bold text-gray-800">
-                          {STORE_SHORT_NAMES[storeData.store] || storeData.store}
+                          {getDisplayName(storeData.store)}
                         </h4>
                         <span className="ml-auto text-sm text-gray-500">計 {storeData.total}人</span>
                       </div>
-
                       {/* ドーナツチャート */}
                       <div className="h-48 relative">
                         <ResponsiveContainer width="100%" height="100%">
@@ -632,7 +760,6 @@ export default function DashboardView() {
                           </div>
                         </div>
                       </div>
-
                       {/* カテゴリ凡例 */}
                       <div className="grid grid-cols-2 gap-2 mt-2">
                         {storeData.categories.map((category) => (
@@ -654,36 +781,6 @@ export default function DashboardView() {
               )}
             </CardContent>
           </Card>
-
-          {/* ライブカメラ映像セクション */}
-          {isAdmin && (
-            <div className="mt-8">
-              <Card className="border-2 border-blue-200 bg-white shadow-lg">
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-6">ライブカメラ映像</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* YouTube ライブストリーム */}
-                    <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">
-                      <iframe
-                        src="https://www.youtube.com/embed/live_stream?channel=UC88R3NUTFAj8NBV0ZIxFxkw"
-                        className="w-full h-full"
-                        allow="autoplay; encrypted-media"
-                        allowFullScreen
-                      />
-                    </div>
-                    <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">
-                      <iframe
-                        src="https://www.youtube.com/embed/live_stream?channel=UChAPXTTOb7kV1IWGGYjUEww"
-                        className="w-full h-full"
-                        allow="autoplay; encrypted-media"
-                        allowFullScreen
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
         </div>
       </div>
     </div>
